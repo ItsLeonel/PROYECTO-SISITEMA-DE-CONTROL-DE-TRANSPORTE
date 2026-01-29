@@ -1,7 +1,10 @@
 package Logica.DAO;
 
 import Logica.Entidades.Bus;
+import Logica.Entidades.SocioDisponible;
 import Logica.Conexiones.ConexionBD;
+
+
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -9,53 +12,41 @@ import java.util.List;
 
 public class BusDAO {
 
-    // =========================
-    // RU1+2+3 – REGISTRAR BUS
-    // =========================
+    /* =========================
+       REGISTRAR BUS
+       ========================= */
     public void insertar(Bus b) throws SQLException {
-        String sql = """
-            INSERT INTO unidad (codigo, placa, dueno, marca, modelo, anio_fabricacion, base, estado)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """;
+        String sql = "INSERT INTO buses " +
+                "(placa, marca, modelo, anio_fabricacion, capacidad_pasajeros, base_asignada, estado, codigo_socio_fk) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection cn = ConexionBD.conectar();
              PreparedStatement ps = cn.prepareStatement(sql)) {
 
-            ps.setString(1, b.getCodigo());
-            ps.setString(2, b.getPlaca());
-            ps.setString(3, b.getDueno());
-            ps.setString(4, b.getMarca());
-            ps.setString(5, b.getModelo());
-            ps.setInt(6, b.getAnioFabricacion());
-            ps.setString(7, b.getBase());
-            ps.setString(8, b.getEstado());
+            ps.setString(1, b.getPlaca());
+            ps.setString(2, b.getMarca());
+            ps.setString(3, b.getModelo());
+            ps.setInt(4, b.getAnioFabricacion());
+            ps.setInt(5, b.getCapacidadPasajeros());
+            ps.setString(6, b.getBaseAsignada());
+            ps.setString(7, b.getEstado());
+            ps.setString(8, b.getCodigoSocioFk());
 
             ps.executeUpdate();
         }
     }
 
-    // =========================
-    // RU4 – CONSULTAR POR CÓDIGO
-    // =========================
-    public Bus obtenerPorCodigo(String codigo) throws SQLException {
-        String sql = "SELECT * FROM unidad WHERE codigo = ?";
-
-        try (Connection cn = ConexionBD.conectar();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
-
-            ps.setString(1, codigo);
-            ResultSet rs = ps.executeQuery();
-
-            if (rs.next()) return mapBus(rs);
-        }
-        return null;
-    }
-
-    // =========================
-    // RU5 – CONSULTAR POR PLACA
-    // =========================
+    /* =========================
+       CONSULTAR POR PLACA
+       ========================= */
     public Bus obtenerPorPlaca(String placa) throws SQLException {
-        String sql = "SELECT * FROM unidad WHERE placa = ?";
+        String sql = """
+            SELECT b.*, s.codigo_socio, s.nombres_completos, s.numero_celular
+            FROM buses b
+            INNER JOIN socios_propietarios s
+                ON b.codigo_socio_fk = s.codigo_socio
+            WHERE b.placa = ?
+        """;
 
         try (Connection cn = ConexionBD.conectar();
              PreparedStatement ps = cn.prepareStatement(sql)) {
@@ -63,103 +54,164 @@ public class BusDAO {
             ps.setString(1, placa);
             ResultSet rs = ps.executeQuery();
 
-            if (rs.next()) return mapBus(rs);
+            if (rs.next()) {
+                return mapBusConSocio(rs);
+            }
         }
         return null;
     }
 
-    // =========================
-    // RU12 – ACTUALIZAR BASE
-    // =========================
-    public int actualizarBase(String codigo, String nuevaBase) throws SQLException {
-
-        String sql = "UPDATE unidad SET base = ? WHERE codigo = ?";
-
+    /* =========================
+       VALIDACIONES
+       ========================= */
+    public boolean existePorPlaca(String placa) throws SQLException {
+        String sql = "SELECT 1 FROM buses WHERE placa = ?";
         try (Connection cn = ConexionBD.conectar();
              PreparedStatement ps = cn.prepareStatement(sql)) {
 
-            ps.setString(1, nuevaBase);
-            ps.setString(2, codigo);
-
-            return ps.executeUpdate();
+            ps.setString(1, placa);
+            return ps.executeQuery().next();
         }
     }
 
-    // =========================
-    // RU6+7+8 – LISTAR FILTRADO
-    // =========================
-    public List<Bus> listarFiltrado(String base, String estado) throws SQLException {
-        List<Bus> lista = new ArrayList<>();
-
-        String sql = "SELECT * FROM unidad WHERE 1=1";
-        if (base != null) sql += " AND base = ?";
-        if (estado != null) sql += " AND estado = ?";
-
+    public boolean socioTieneBus(String codigoSocio) throws SQLException {
+        String sql = "SELECT 1 FROM buses WHERE codigo_socio_fk = ?";
         try (Connection cn = ConexionBD.conectar();
              PreparedStatement ps = cn.prepareStatement(sql)) {
+
+            ps.setString(1, codigoSocio);
+            return ps.executeQuery().next();
+        }
+    }
+
+    /* =========================
+       LISTADOS
+       ========================= */
+    public List<Bus> listarTodos() throws SQLException {
+        String sql = """
+            SELECT b.*, s.codigo_socio, s.nombres_completos, s.numero_celular
+            FROM buses b
+            INNER JOIN socios_propietarios s
+                ON b.codigo_socio_fk = s.codigo_socio
+            ORDER BY b.placa
+        """;
+
+        List<Bus> buses = new ArrayList<>();
+
+        try (Connection cn = ConexionBD.conectar();
+             PreparedStatement ps = cn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                buses.add(mapBusConSocio(rs));
+            }
+        }
+        return buses;
+    }
+
+    public List<Bus> listarFiltrado(String base, String estado) throws SQLException {
+        StringBuilder sql = new StringBuilder("""
+            SELECT b.*, s.codigo_socio, s.nombres_completos, s.numero_celular
+            FROM buses b
+            INNER JOIN socios_propietarios s
+                ON b.codigo_socio_fk = s.codigo_socio
+            WHERE 1=1
+        """);
+
+        if (base != null && !base.isBlank()) {
+    sql.append(" AND b.base_asignada = ?");
+}
+if (estado != null && !estado.isBlank()) {
+    sql.append(" AND b.estado = ?");
+}
+
+        sql.append(" ORDER BY b.placa");
+
+        List<Bus> buses = new ArrayList<>();
+
+        try (Connection cn = ConexionBD.conectar();
+             PreparedStatement ps = cn.prepareStatement(sql.toString())) {
 
             int i = 1;
             if (base != null) ps.setString(i++, base);
-            if (estado != null) ps.setString(i++, estado);
+            if (estado != null) ps.setString(i, estado);
 
             ResultSet rs = ps.executeQuery();
-            while (rs.next()) lista.add(mapBus(rs));
+            while (rs.next()) {
+                buses.add(mapBusConSocio(rs));
+            }
         }
-        return lista;
+        return buses;
     }
 
-    // =========================
-    // RU9+16+17 – DISPONIBLES
-    // =========================
-    public List<Bus> listarDisponibles(String base) throws SQLException {
-        List<Bus> lista = new ArrayList<>();
+    /* =========================
+       MAPEO
+       ========================= */
+    private Bus mapBusConSocio(ResultSet rs) throws SQLException {
+        Bus bus = new Bus();
 
-        String sql = "SELECT * FROM unidad WHERE estado = 'ACTIVO'";
-        if (base != null) sql += " AND base = ?";
+        bus.setPlaca(rs.getString("placa"));
+        bus.setMarca(rs.getString("marca"));
+        bus.setModelo(rs.getString("modelo"));
+        bus.setAnioFabricacion(rs.getInt("anio_fabricacion"));
+        bus.setCapacidadPasajeros(rs.getInt("capacidad_pasajeros"));
+        bus.setBaseAsignada(rs.getString("base_asignada"));
+        bus.setEstado(rs.getString("estado"));
+        bus.setCodigoSocioFk(rs.getString("codigo_socio_fk"));
 
-        try (Connection cn = ConexionBD.conectar();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
+        bus.setNombresPropietario(rs.getString("nombres_completos"));
+        bus.setTelefonoPropietario(rs.getString("numero_celular"));
 
-            if (base != null) ps.setString(1, base);
+        return bus;
+    }
+    public int actualizarBase(String placa, String nuevaBase) throws SQLException {
+    String sql = "UPDATE buses SET base_asignada = ? WHERE placa = ?";
 
-            ResultSet rs = ps.executeQuery();
-            while (rs.next()) lista.add(mapBus(rs));
+    try (Connection cn = ConexionBD.conectar();
+         PreparedStatement ps = cn.prepareStatement(sql)) {
+
+        ps.setString(1, nuevaBase);
+        ps.setString(2, placa);
+        return ps.executeUpdate();
+    }
+}
+public List<SocioDisponible> obtenerSociosDisponibles() throws SQLException {
+    String sql = """
+        SELECT codigo_socio, nombres_completos
+        FROM socios_propietarios
+        WHERE estado = 'ACTIVO'
+        AND codigo_socio NOT IN (
+            SELECT codigo_socio_fk FROM buses
+        )
+        ORDER BY nombres_completos
+    """;
+
+    List<SocioDisponible> socios = new ArrayList<>();
+
+    try (Connection cn = ConexionBD.conectar();
+         PreparedStatement ps = cn.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        while (rs.next()) {
+            SocioDisponible s = new SocioDisponible();
+            s.setCodigoSocio(rs.getString("codigo_socio"));
+            s.setNombresCompletos(rs.getString("nombres_completos"));
+            socios.add(s);
         }
-        return lista;
     }
+    return socios;
+}
+public void actualizarEstado(String placa, String estado) throws SQLException {
+    String sql = "UPDATE buses SET estado = ? WHERE placa = ?";
 
-    // =========================
-    // RU10+11 – ACTUALIZAR PLACA
-    // =========================
-  
-    // =========================
-    // RU13 / RU14 / RU15 – ACTUALIZAR ESTADO
-    // =========================
-    public void actualizarEstado(String codigo, String estado) throws SQLException {
-        String sql = "UPDATE unidad SET estado = ? WHERE codigo = ?";
+    try (Connection cn = ConexionBD.conectar();
+         PreparedStatement ps = cn.prepareStatement(sql)) {
 
-        try (Connection cn = ConexionBD.conectar();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
-
-            ps.setString(1, estado);
-            ps.setString(2, codigo);
-            ps.executeUpdate();
-        }
+        ps.setString(1, estado);
+        ps.setString(2, placa);
+        ps.executeUpdate();
     }
+}
 
-    // =========================
-    // MAPEO
-    // =========================
-    private Bus mapBus(ResultSet rs) throws SQLException {
-        return new Bus(
-                rs.getString("codigo"),
-                rs.getString("placa"),
-                rs.getString("dueno"),
-                rs.getString("marca"),
-                rs.getString("modelo"),
-                rs.getInt("anio_fabricacion"),
-                rs.getString("base"),
-                rs.getString("estado")
-        );
-    }
+
 }

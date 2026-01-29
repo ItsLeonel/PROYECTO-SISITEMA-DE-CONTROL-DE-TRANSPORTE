@@ -5,9 +5,9 @@ import Logica.Servicios.AuditoriaService;
 import Logica.Servicios.SessionContext;
 import Presentacion.Recursos.SidebarButton;
 import Presentacion.Recursos.UITheme;
+import Presentacion.Ventanas.Buses.PanelBuses;
 import Presentacion.Ventanas.GestionSistema.PanelGestionSistema;
 import Presentacion.Ventanas.Transporte.PanelTransporte;
-import Presentacion.Ventanas.Unidades.PanelUnidades;
 
 import javax.swing.*;
 import java.awt.*;
@@ -23,7 +23,8 @@ public class VentanaPrincipal extends JFrame {
     public static final String CARD_BUSES = "BUSES";
     public static final String CARD_TRANSPORTE = "TRANSPORTE";
     public static final String CARD_TURNOS = "TURNOS";
-    public static final String CARD_SANCIONES = "SANCIONES";
+    public static final String CARD_SOCIOS = "SOCIOS";
+
     public static final String CARD_AUDITORIA = "AUDITORIA";
 
     private final JPanel panelCentral;
@@ -57,10 +58,12 @@ public class VentanaPrincipal extends JFrame {
 
     safeAddCard(CARD_DASHBOARD, () -> new PanelDashboard(usuario, rol));
     safeAddCard(CARD_GESTION_SISTEMA, PanelGestionSistema::new);
-    safeAddCard(CARD_BUSES, PanelUnidades::new);
+    safeAddCard(CARD_BUSES, PanelBuses::new);
     safeAddCard(CARD_TRANSPORTE, PanelTransporte::new);
     safeAddCard(CARD_TURNOS, PanelTurnos::new);
-    safeAddCard(CARD_SANCIONES, PanelSanciones::new);
+    safeAddCard(CARD_SOCIOS, () -> new Presentacion.Ventanas.Socios.PanelSocios());
+
+  
     safeAddCard(CARD_AUDITORIA, PanelAuditoria::new);
 
     add(panelCentral, BorderLayout.CENTER);
@@ -239,8 +242,9 @@ private JPanel construirTopBar() {
         addNav(nav, "Turnos", CARD_TURNOS,
                 "/Presentacion/Recursos/icons/turnos.png");
 
-        addNav(nav, "Sanciones", CARD_SANCIONES,
-                "/Presentacion/Recursos/icons/sanciones.png");
+        addNav(nav, "Socios", CARD_SOCIOS,
+        "/Presentacion/Recursos/icons/socios.png");
+
 
         addNav(nav, "Auditoría", CARD_AUDITORIA,
                 "/Presentacion/Recursos/icons/auditoria.png");

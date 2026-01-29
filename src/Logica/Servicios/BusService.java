@@ -1,228 +1,241 @@
 package Logica.Servicios;
 
-import Logica.DAO.BusDAO;
-import Logica.Entidades.Bus;
-import Logica.Entidades.Base;
 
+import Logica.DAO.BusDAO;
+import Logica.DAO.SocioDAO;
+import Logica.Entidades.Bus;
+import Logica.Entidades.SocioDisponible;
+
+import java.sql.SQLException;
+import java.util.Calendar;
 import java.util.List;
 
 public class BusService {
 
-    private final BusDAO dao = new BusDAO();
-    private final BaseService baseService = new BaseService();
+    private BusDAO busDAO;
+    private SocioDAO socioDAO;
 
-    // =========================
-    // RU1+2+3 – REGISTRAR BUS
-    // =========================
-    private boolean esBaseValida(String nombreBase) {
-        if (nombreBase == null || nombreBase.isBlank()) {
-            return false;
-        }
-
-        Base base = baseService.obtenerBasePorNombre(nombreBase.trim());
-        return base != null;
+    public BusService() {
+        this.busDAO = new BusDAO();
+        this.socioDAO = new SocioDAO();
     }
 
-    public void registrar(Bus b) throws Exception {
-
-        if (!b.getCodigo().matches("\\d{4}"))
-            throw new Exception("No se pudo registrar la unidad: el código no cumple el formato requerido.");
-
-        if (!validarPlaca(b.getPlaca()))
-            throw new Exception("No se pudo registrar la unidad: la placa no cumple el formato requerido.");
-
-        if (dao.obtenerPorCodigo(b.getCodigo()) != null)
-            throw new Exception("No se pudo registrar la unidad: el código ya se encuentra registrado.");
-
-        if (dao.obtenerPorPlaca(b.getPlaca()) != null)
-            throw new Exception("No se pudo registrar la unidad: la placa ya se encuentra registrada.");
-
-        if (!esBaseValida(b.getBase()))
-            throw new Exception("No se pudo registrar la unidad: la base asignada no es válida.");
-
-        dao.insertar(b);
-    }
-
-    // =========================
-    // RU4+5 – CONSULTAR
-    // =========================
-    public Bus consultarPorCodigo(String codigo) throws Exception {
-        
-        if (!codigo.matches("\\d{4}"))
-            throw new Exception("No se pudo consultar la unidad: el código dla unidad no cumple el formato requerido.");
-
-        Bus b = dao.obtenerPorCodigo(codigo);
-        if (b == null)
-            throw new Exception("No se pudo consultar la unidad: no existe un unidad con el criterio ingresado.");
-
-        return b;
-    }
-
-    public Bus consultarPorPlaca(String placa) throws Exception {
-        
-        if (!validarPlaca(placa))
-            throw new Exception("No se pudo consultar la unidad: la placa dla unidad no cumple el formato requerido.");
-
-        Bus b = dao.obtenerPorPlaca(placa);
-        if (b == null)
-            throw new Exception("No se pudo consultar la unidad: no existe un unidad con el criterio ingresado.");
-
-        return b;
-    }
-
-    // =========================
-    // RU6+7+8 – LISTAR FILTRADO
-    // =========================
-    public List<Bus> listar(String base, String estado) throws Exception {
-
-        if (base != null && !esBaseValida(base))
-            throw new Exception("No se pudo generar el listado de unidad: la base asignada no es válida.");
-
-        if (estado != null && !List.of("ACTIVO", "INACTIVO", "MANTENIMIENTO").contains(estado))
-            throw new Exception("No se pudo generar el listado de unidades: el estado ingresado no es válido.");
-
-        List<Bus> lista = dao.listarFiltrado(base, estado);
-
-        if (lista.isEmpty())
-            throw new Exception("No se pudo generar el listado de unidades: no existen unidades que coincidan con los filtros ingresados.");
-
-        return lista;
-    }
-
-    // =========================
-    // RU9+16+17 – DISPONIBLES
-    // =========================
-    public List<Bus> listarDisponibles(String base) throws Exception {
-        
-        if (base != null && !esBaseValida(base))
-            throw new Exception("No se pudo generar el listado de unidades disponibles: la base asignada no es válida.");
-
-        List<Bus> lista = dao.listarDisponibles(base);
-
-        if (lista.isEmpty())
-            throw new Exception("No se pudo generar el listado de unidades disponibles: no existen unidades disponibles para la asignación de turnos.");
-
-        return lista;
-    } 
-
-    // =========================
-    // RU10+11 – ACTUALIZAR PLACA
-    // =========================
-  
-
-    // =========================
-    // RU12 – ACTUALIZAR BASE
-    // =========================
-    public void actualizarBase(String codigo, String nuevaBase) throws Exception {
-
-        if (!codigo.matches("\\d{4}"))
-            throw new Exception("No se pudo actualizar la base asignada dla unidad: el código dla unidad no cumple el formato requerido.");
-
-        if (!esBaseValida(nuevaBase))
-            throw new Exception("No se pudo actualizar la base asignada dla unidad: la base asignada no es válida.");
-
-        Bus b = dao.obtenerPorCodigo(codigo);
-        if (b == null)
-            throw new Exception("No se pudo actualizar la base asignada dla unidad: el código dla unidad no existe.");
-
-        int rows = dao.actualizarBase(codigo, nuevaBase);
-        if (rows == 0)
-            throw new Exception("No se pudo actualizar la base asignada dla unidad: el código dla unidad no existe.");
-    }
-
-    // =========================
-    // RU13 – ACTIVAR BUS
-    // =========================
-    public void activar(String codigo) throws Exception {
-        
-        if (!codigo.matches("\\d{4}"))
-            throw new Exception("No se pudo activar la unidad: el código dla unidad no cumple el formato requerido.");
-
-        Bus b = dao.obtenerPorCodigo(codigo);
-        if (b == null)
-            throw new Exception("No se pudo activar la  unidad: el código dla unidad no existe.");
-
-        if ("ACTIVO".equals(b.getEstado()))
-            throw new Exception("No se pudo activar la unidad: la unidad ya se encuentra activo.");
-
-        dao.actualizarEstado(codigo, "ACTIVO");
-    }
-
-    // =========================
-    // RU14 – DESACTIVAR BUS
-    // =========================
-    public void desactivar(String codigo) throws Exception {
-        
-        if (!codigo.matches("\\d{4}"))
-            throw new Exception("No se pudo inactivar la unidad: el código dla unidad no cumple el formato requerido.");
-
-        Bus b = dao.obtenerPorCodigo(codigo);
-        if (b == null)
-            throw new Exception("No se pudo inactivar la unidad: el código dla unidad no existe.");
-
-        if ("INACTIVO".equals(b.getEstado()))
-            throw new Exception("No se pudo inactivar la unidad: la unidad ya se encuentra inactivada.");
-
-        dao.actualizarEstado(codigo, "INACTIVO");
-    }
-
-    // =========================
-    // RU15 – MANTENIMIENTO
-    // =========================
-    public void mantenimiento(String codigo) throws Exception {
-        
-        if (!codigo.matches("\\d{4}"))
-            throw new Exception("No se pudo enviar la unidad a mantenimiento: el código dla unidad no cumple el formato requerido.");
-
-        Bus b = dao.obtenerPorCodigo(codigo);
-        if (b == null)
-            throw new Exception("No se pudo enviar la unidad a mantenimiento: el código dla unidad no existe.");
-
-        if ("MANTENIMIENTO".equals(b.getEstado()))
-            throw new Exception("No se pudo enviar la unidad a mantenimiento: la unidad ya se encuentra en mantenimiento.");
-
-        dao.actualizarEstado(codigo, "MANTENIMIENTO");
-    }
-
-    // =========================
-    // VALIDACIÓN DE PLACA (ANEXO C)
-    // =========================
     /**
-     * Valida el formato de placa según Anexo C:
-     * 
-     * ESTRUCTURA: PPP-NNNN o PPPNNNN (guion opcional)
-     * 
-     * Donde:
-     * - P = Primera letra OBLIGATORIAMENTE "P" (servicio público)
-     * - P = Segunda letra A-Z (excepto Ñ)
-     * - P = Tercera letra A-Z (excepto Ñ)
-     * - Guion = Opcional (solo presentación)
-     * - NNNN = 4 dígitos numéricos (0-9)
-     * 
-     * Ejemplos válidos:
-     * ✅ PBD-7777
-     * ✅ PBD7777
-     * ✅ PGX-1234
-     * ✅ PKL-0001
-     * 
-     * Ejemplos inválidos:
-     * ❌ ABD-7777  (primera letra no es P)
-     * ❌ PBÑ-7777  (contiene Ñ)
-     * ❌ PB-77777  (solo 2 letras)
-     * ❌ PBD-77    (solo 2 dígitos)
-     * ❌ pbd-7777  (minúsculas)
+     * ru1+2+3v1.1 - Registrar un bus
      */
+    public ResultadoOperacion registrarBus(Bus bus) {
+        try {
+            if (!validarPlaca(bus.getPlaca())) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: la placa ingresada es inválida.");
+            }
+
+            if (busDAO.existePorPlaca(bus.getPlaca())) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: la placa ya se encuentra previamente registrada.");
+            }
+
+            if (!socioDAO.existeCodigoSocio(bus.getCodigoSocioFk())) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: el socio propietario no existe en el sistema.");
+            }
+
+            if (busDAO.socioTieneBus(bus.getCodigoSocioFk())) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: el socio propietario ya tiene un bus asignado.");
+            }
+
+            if (bus.getMarca() == null || bus.getMarca().trim().isEmpty() ||
+                    bus.getMarca().length() > 15) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: la marca debe tener entre 1 y 15 caracteres.");
+            }
+
+            if (bus.getModelo() == null || bus.getModelo().trim().isEmpty() ||
+                    bus.getModelo().length() > 15) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: el modelo debe tener entre 1 y 15 caracteres.");
+            }
+
+            int anioActual = Calendar.getInstance().get(Calendar.YEAR);
+            if (bus.getAnioFabricacion() > anioActual ||
+                    bus.getAnioFabricacion() < (anioActual - 10)) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: el año de fabricación debe estar entre "
+                                + (anioActual - 10) + " y " + anioActual + ".");
+            }
+
+            if (bus.getCapacidadPasajeros() <= 0) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: la capacidad debe ser mayor que cero.");
+            }
+
+            if (bus.getBaseAsignada() == null || bus.getBaseAsignada().trim().isEmpty()) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: debe especificar una base operativa.");
+            }
+
+            busDAO.insertar(bus);
+
+            return new ResultadoOperacion(true, "Bus registrado correctamente.");
+
+        } catch (SQLException e) {
+            return new ResultadoOperacion(false,
+                    "Error en la base de datos: " + e.getMessage());
+        }
+    }
+
+    public ResultadoOperacion consultarBusPorPlaca(String placa) {
+        try {
+            if (!validarPlaca(placa)) {
+                return new ResultadoOperacion(false,
+                        "La placa ingresada no cumple con el formato requerido.");
+            }
+
+            Bus bus = busDAO.obtenerPorPlaca(placa);
+
+            if (bus == null) {
+                return new ResultadoOperacion(false,
+                        "No se encontró un bus registrado con la placa ingresada.");
+            }
+
+            return new ResultadoOperacion(true,
+                    "Bus encontrado correctamente.", bus);
+
+        } catch (SQLException e) {
+            return new ResultadoOperacion(false,
+                    "Error en la base de datos: " + e.getMessage());
+        }
+    }
+
+    public ResultadoOperacion asignarBase(String placa, String nuevaBase) {
+        try {
+            if (!validarPlaca(placa)) {
+                return new ResultadoOperacion(false,
+                        "La placa ingresada no cumple con el formato requerido.");
+            }
+
+            if (nuevaBase == null || nuevaBase.trim().isEmpty()) {
+                return new ResultadoOperacion(false,
+                        "Debe especificar una base operativa válida.");
+            }
+
+            int filas = busDAO.actualizarBase(placa, nuevaBase);
+if (filas == 0) {
+    return new ResultadoOperacion(false,
+            "No se pudo asignar la base: el bus no existe.");
+}
+
+
+            return new ResultadoOperacion(true,
+                    "La base ha sido asignada correctamente al bus.");
+
+        } catch (SQLException e) {
+            return new ResultadoOperacion(false,
+                    "Error en la base de datos: " + e.getMessage());
+        }
+    }
+
+    public ResultadoOperacion listarTodosBuses() {
+        try {
+            List<Bus> buses = busDAO.listarTodos();
+
+            if (buses.isEmpty()) {
+                return new ResultadoOperacion(false,
+                        "No hay buses registrados en el sistema.");
+            }
+
+            return new ResultadoOperacion(true,
+                    "Listado de buses obtenido correctamente.", buses);
+
+        } catch (SQLException e) {
+            return new ResultadoOperacion(false,
+                    "Error en la base de datos: " + e.getMessage());
+        }
+    }
+
+    public ResultadoOperacion listarBusesFiltrado(String base, String estado) {
+        try {
+            List<Bus> buses = busDAO.listarFiltrado(base, estado);
+
+            if (buses.isEmpty()) {
+                return new ResultadoOperacion(false,
+                        "No se encontraron buses con los criterios especificados.");
+            }
+
+            return new ResultadoOperacion(true,
+                    "Listado de buses obtenido correctamente.", buses);
+
+        } catch (SQLException e) {
+            return new ResultadoOperacion(false,
+                    "Error en la base de datos: " + e.getMessage());
+        }
+    }
+
+    public ResultadoOperacion obtenerSociosDisponibles() {
+        try {
+            List<SocioDisponible> socios = busDAO.obtenerSociosDisponibles();
+
+            if (socios.isEmpty()) {
+                return new ResultadoOperacion(false,
+                        "No hay socios disponibles sin bus asignado.");
+            }
+
+            return new ResultadoOperacion(true,
+                    "Socios disponibles obtenidos correctamente.", socios);
+
+        } catch (SQLException e) {
+            return new ResultadoOperacion(false,
+                    "Error en la base de datos: " + e.getMessage());
+        }
+    }
+
     private boolean validarPlaca(String placa) {
-        if (placa == null || placa.isBlank())
-            return false;
-
-        // Normalizar: trim + mayúsculas
+        if (placa == null || placa.trim().isEmpty()) return false;
         placa = placa.trim().toUpperCase();
-
-        // Regex flexible: guion opcional
-        // P[A-Z]{2} = P + 2 letras (sin Ñ porque no está en A-Z)
-        // -? = guion opcional
-        // \\d{4} = 4 dígitos
         return placa.matches("P[A-Z]{2}-?\\d{4}");
     }
+    public ResultadoOperacion activarBus(String placa) {
+    return cambiarEstadoBus(placa, "ACTIVO",
+            "El estado del bus ha sido cambiado a ACTIVO.");
+}
+
+public ResultadoOperacion desactivarBus(String placa) {
+    return cambiarEstadoBus(placa, "INACTIVO",
+            "El estado del bus ha sido cambiado a INACTIVO.");
+}
+
+public ResultadoOperacion mantenimientoBus(String placa) {
+    return cambiarEstadoBus(placa, "MANTENIMIENTO",
+            "El estado del bus ha sido cambiado a MANTENIMIENTO");
+}
+
+private ResultadoOperacion cambiarEstadoBus(String placa, String nuevoEstado, String mensajeOk) {
+    try {
+        if (!validarPlaca(placa)) {
+            return new ResultadoOperacion(false,
+                    "La placa ingresada no es válida.");
+        }
+
+        Bus bus = busDAO.obtenerPorPlaca(placa);
+        if (bus == null) {
+            return new ResultadoOperacion(false,
+                    "No existe un bus con la placa ingresada.");
+        }
+
+        if (nuevoEstado.equals(bus.getEstado())) {
+            return new ResultadoOperacion(false,
+                    "El bus ya se encuentra en estado " + nuevoEstado + ".");
+        }
+
+        busDAO.actualizarEstado(placa, nuevoEstado);
+
+        return new ResultadoOperacion(true, mensajeOk);
+
+    } catch (SQLException e) {
+        return new ResultadoOperacion(false,
+                "Error en la base de datos: " + e.getMessage());
+    }
+}
+
 }

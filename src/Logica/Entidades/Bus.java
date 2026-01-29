@@ -1,53 +1,144 @@
 package Logica.Entidades;
 
+/**
+ * Entidad Bus
+ * Módulo de Buses - Sistema SCTET
+ */
 public class Bus {
-    private String codigo;           // PK único (4 dígitos)
-    private String placa;            // Única (formato PPP-1234)
-    private String dueno;            // Propietario del bus
-    private String marca;            // Ej: Hino, Chevrolet, Isuzu
-    private String modelo;           // Ej: AK, NQR, FRR
-    private int anioFabricacion;     // YEAR en BD
-    private String base;             // FK a base_operativa(nombre)
-    private String estado;           // ACTIVO/DESACTIVADO/MANTENIMIENTO
 
-    // Constructor completo
-    public Bus(String codigo, String placa, String dueno, String marca, 
-               String modelo, int anioFabricacion, String base, String estado) {
-        this.codigo = codigo;
+    // ===== CAMPOS PERSISTENTES (tabla buses) =====
+    private String placa;                  // PK
+    private String marca;
+    private String modelo;
+    private int anioFabricacion;
+    private int capacidadPasajeros;
+    private String baseAsignada;
+    private String estado;
+    private String codigoSocioFk;          // FK → socios_propietarios.codigo_socio
+
+    // ===== CAMPOS DE APOYO (JOIN, no persistentes) =====
+    private String nombresPropietario;
+    private String telefonoPropietario;
+    // private String codigoSocio;
+
+    // Constructor vacío
+    public Bus() {
+        this.estado = "ACTIVO";
+    }
+
+    // Constructor para registro
+    public Bus(String placa, String marca, String modelo,
+               int anioFabricacion, int capacidadPasajeros,
+               String baseAsignada, String estado, String codigoSocioFk) {
+
         this.placa = placa;
-        this.dueno = dueno;
         this.marca = marca;
         this.modelo = modelo;
         this.anioFabricacion = anioFabricacion;
-        this.base = base;
+        this.capacidadPasajeros = capacidadPasajeros;
+        this.baseAsignada = baseAsignada;
+        this.estado = estado;
+        this.codigoSocioFk = codigoSocioFk;
+    }
+
+    // ===== GETTERS Y SETTERS =====
+
+    public String getPlaca() {
+        return placa;
+    }
+    public String getCodigoSocio() {
+    return codigoSocioFk;
+}
+
+    public void setPlaca(String placa) {
+        this.placa = placa;
+    }
+
+    public String getMarca() {
+        return marca;
+    }
+
+    public void setMarca(String marca) {
+        this.marca = marca;
+    }
+
+    public String getModelo() {
+        return modelo;
+    }
+    
+    public void setModelo(String modelo) {
+        this.modelo = modelo;
+    }
+
+    public int getAnioFabricacion() {
+        return anioFabricacion;
+    }
+
+    public void setAnioFabricacion(int anioFabricacion) {
+        this.anioFabricacion = anioFabricacion;
+    }
+
+    public int getCapacidadPasajeros() {
+        return capacidadPasajeros;
+    }
+
+    public void setCapacidadPasajeros(int capacidadPasajeros) {
+        this.capacidadPasajeros = capacidadPasajeros;
+    }
+
+    public String getBaseAsignada() {
+        return baseAsignada;
+    }
+
+    public void setBaseAsignada(String baseAsignada) {
+        this.baseAsignada = baseAsignada;
+    }
+
+    public String getEstado() {
+        return estado;
+    }
+
+    public void setEstado(String estado) {
         this.estado = estado;
     }
 
-    // Getters
-    public String getCodigo() { return codigo; }
-    public String getPlaca() { return placa; }
-    public String getDueno() { return dueno; }
-    public String getMarca() { return marca; }
-    public String getModelo() { return modelo; }
-    public int getAnioFabricacion() { return anioFabricacion; }
-    public String getBase() { return base; }
-    public String getEstado() { return estado; }
+    public String getCodigoSocioFk() {
+        return codigoSocioFk;
+    }
 
-    // Setters (solo los modificables)
-    public void setPlaca(String placa) { 
-        this.placa = placa; 
+    public void setCodigoSocioFk(String codigoSocioFk) {
+        this.codigoSocioFk = codigoSocioFk;
     }
-    
-    public void setBase(String base) { 
-        this.base = base; 
+
+    public String getNombresPropietario() {
+        return nombresPropietario;
     }
-    
-    public void setEstado(String estado) { 
-        this.estado = estado; 
+
+    public void setNombresPropietario(String nombresPropietario) {
+        this.nombresPropietario = nombresPropietario;
     }
+
+    public String getTelefonoPropietario() {
+        return telefonoPropietario;
+    }
+
+    public void setTelefonoPropietario(String telefonoPropietario) {
+        this.telefonoPropietario = telefonoPropietario;
+    }
+
     
-    // Método auxiliar para verificar si está disponible para turnos
     public boolean isDisponible() {
         return "ACTIVO".equalsIgnoreCase(estado);
+
+    }
+
+    @Override
+    public String toString() {
+        return "Bus{" +
+                "placa='" + placa + '\'' +
+                ", marca='" + marca + '\'' +
+                ", modelo='" + modelo + '\'' +
+                ", estado='" + estado + '\'' +
+                '}';
     }
 }

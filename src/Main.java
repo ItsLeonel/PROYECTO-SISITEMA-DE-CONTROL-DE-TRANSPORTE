@@ -10,8 +10,8 @@ public class Main {
         } catch (Exception ignored) {}
 
         SwingUtilities.invokeLater(() -> {
-            new VentanaLogin().setVisible(true);
-            //new VentanaPrincipal("Admin", "Administrador").setVisible(true);
+            //new VentanaLogin().setVisible(true);
+            new VentanaPrincipal("Admin", "Administrador").setVisible(true);
         });
     }
 }
