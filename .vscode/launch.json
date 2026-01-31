@@ -6,6 +6,20 @@
     "configurations": [
         {
             "type": "java",
+            "name": "GeneradorHashesBD",
+            "request": "launch",
+            "mainClass": "testing.GeneradorHashesBD",
+            "projectName": "PROYECTO-SISITEMA-DE-CONTROL-DE-TRANSPORTE_78ee1cba"
+        },
+        {
+            "type": "java",
+            "name": "TestConexion",
+            "request": "launch",
+            "mainClass": "Logica.Conexiones.TestConexion",
+            "projectName": "PROYECTO-SISITEMA-DE-CONTROL-DE-TRANSPORTE_78ee1cba"
+        },
+        {
+            "type": "java",
             "name": "Main",
             "request": "launch",
             "mainClass": "Main",

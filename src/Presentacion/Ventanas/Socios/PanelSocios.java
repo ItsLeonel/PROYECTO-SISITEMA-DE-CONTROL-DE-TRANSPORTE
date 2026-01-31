@@ -19,13 +19,13 @@ public class PanelSocios extends JPanel {
     private CardLayout cardLayout;
     private JPanel panelCards;
 
-    // Color del tema
-    private static final Color PRIMARY_COLOR = new Color(15, 23, 42); // azul oscuro elegante
-
+    // 🎨 Color base (MISMO que Buses)
+    private static final Color BG_MAIN = new Color(11, 22, 38);
+    private static final Color HEADER_COLOR = new Color(10, 18, 34);
 
     public PanelSocios() {
         setLayout(new BorderLayout());
-        setBackground(new Color(245, 247, 250));
+        setBackground(BG_MAIN);
 
         // Header
         add(construirHeader(), BorderLayout.NORTH);
@@ -33,7 +33,7 @@ public class PanelSocios extends JPanel {
         // CardLayout
         cardLayout = new CardLayout();
         panelCards = new JPanel(cardLayout);
-        panelCards.setBackground(new Color(245, 247, 250));
+        panelCards.setBackground(BG_MAIN);
 
         // Vistas
         panelCards.add(new PanelMenuSocios(this), MENU);
@@ -54,34 +54,26 @@ public class PanelSocios extends JPanel {
     /**
      * Header del módulo
      */
-  private JPanel construirHeader() {
-    JPanel header = new JPanel(new BorderLayout());
-    header.setBackground(PRIMARY_COLOR);
+    private JPanel construirHeader() {
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(HEADER_COLOR);
 
-    // Borde inferior + padding (EN UNO SOLO)
-    header.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(30, 64, 175)),
-            BorderFactory.createEmptyBorder(20, 30, 20, 30)
-    ));
+        // Línea inferior fina + padding (igual a Buses)
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(40, 80, 140)),
+                BorderFactory.createEmptyBorder(20, 30, 20, 30)
+        ));
 
-    JLabel titulo = new JLabel("Gestión de Socios Propietarios");
-    titulo.setFont(new Font("Segoe UI", Font.BOLD, 34));
-    titulo.setForeground(Color.WHITE);
+        JLabel titulo = new JLabel("Gestión de Socios Propietarios");
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        titulo.setForeground(Color.WHITE);
 
-    JLabel subtitulo = new JLabel(
-            "");
-    subtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-    subtitulo.setForeground(new Color(255, 255, 255, 200));
+        JPanel textos = new JPanel();
+        textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
+        textos.setOpaque(false);
+        textos.add(titulo);
 
-    JPanel textos = new JPanel();
-    textos.setLayout(new BoxLayout(textos, BoxLayout.Y_AXIS));
-    textos.setOpaque(false);
-    textos.add(titulo);
-    textos.add(Box.createVerticalStrut(5));
-    textos.add(subtitulo);
-
-    header.add(textos, BorderLayout.WEST);
-    return header;
-}
-
+        header.add(textos, BorderLayout.WEST);
+        return header;
+    }
 }

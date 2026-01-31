@@ -116,7 +116,7 @@ private JPanel construirFormulario() {
     fila++;
     gbc.gridx = 0;
     gbc.gridy = fila;
-    panel.add(crearLabel("Cédula Identidad:"), gbc);
+    panel.add(crearLabel("Cédula:"), gbc);
 
     gbc.gridx = 1;
     gbc.gridwidth = 3;
@@ -133,7 +133,7 @@ private JPanel construirFormulario() {
     fila++;
     gbc.gridx = 0;
     gbc.gridy = fila;
-    panel.add(crearLabel("Nombres Completos:"), gbc);
+    panel.add(crearLabel("Nombre:"), gbc);
 
     gbc.gridx = 1;
     gbc.gridwidth = 3;
@@ -165,7 +165,7 @@ private JPanel construirFormulario() {
     fila++;
     gbc.gridx = 0;
     gbc.gridy = fila;
-    panel.add(crearLabel("Celular (10 díg):"), gbc);
+    panel.add(crearLabel("Celular:"), gbc);
 
     gbc.gridx = 1;
     gbc.gridwidth = 3;

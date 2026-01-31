@@ -5,110 +5,162 @@ import Logica.Servicios.BusService;
 import Logica.Servicios.ResultadoOperacion;
 
 import javax.swing.*;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.*;
 
 /**
- * Panel para consultar un bus por placa
+ * Panel para consultar buses por placa
  * Requisito: ru4+5v1.1
+ * DISEÑO: Formato tipo carnet/tarjeta visual
  */
 public class PanelConsultarBus extends JPanel {
-
+    
     private BusService busService;
+    private PanelBuses parent;
     private JTextField txtPlaca;
     private JPanel panelResultado;
 
-    // Colores
+    // Colores del tema
     private static final Color BG_MAIN = new Color(11, 22, 38);
     private static final Color BG_PANEL = new Color(18, 36, 64);
+    private static final Color BG_CARD = new Color(21, 44, 82);
     private static final Color PRIMARY_COLOR = new Color(33, 90, 190);
+    private static final Color SUCCESS_COLOR = new Color(40, 167, 69);
     private static final Color TEXT_SECONDARY = new Color(190, 200, 215);
     private static final Color BORDER_COLOR = new Color(45, 80, 130);
 
-    public PanelConsultarBus() {
+    public PanelConsultarBus(PanelBuses parent) {
+        this.parent = parent;
         this.busService = new BusService();
 
-        setLayout(new BorderLayout(16, 16));
+        setLayout(new BorderLayout(0, 20));
         setBackground(BG_MAIN);
-        setBorder(BorderFactory.createEmptyBorder(20, 24, 24, 24));
+        setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
 
-        add(crearPanelBusqueda(), BorderLayout.NORTH);
-        add(crearPanelResultado(), BorderLayout.CENTER);
+        add(construirPanelBusqueda(), BorderLayout.NORTH);
+        add(construirPanelResultado(), BorderLayout.CENTER);
+        add(construirPanelBotones(), BorderLayout.SOUTH);
     }
 
-    private JPanel crearPanelBusqueda() {
-        JPanel panel = new JPanel(new BorderLayout(12, 0));
+    /**
+     * Panel superior con campo de búsqueda
+     */
+    private JPanel construirPanelBusqueda() {
+        JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(BG_PANEL);
         panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR),
-                BorderFactory.createEmptyBorder(12, 16, 12, 16)
+                BorderFactory.createLineBorder(BORDER_COLOR, 2),
+                BorderFactory.createEmptyBorder(25, 30, 25, 30)
         ));
 
-        JLabel titulo = new JLabel("🔍 Buscar Bus por Placa");
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        titulo.setForeground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(0, 10, 0, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JPanel centro = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-        centro.setOpaque(false);
+        // Título
+        JLabel lblTitulo = new JLabel("Consultar Bus");
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitulo.setForeground(Color.WHITE);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 3;
+        gbc.insets = new Insets(0, 0, 15, 0);
+        panel.add(lblTitulo, gbc);
 
-        txtPlaca = new JTextField(14);
-        txtPlaca.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtPlaca.setBackground(new Color(21, 44, 82));
-        txtPlaca.setForeground(Color.WHITE);
-        txtPlaca.setCaretColor(Color.WHITE);
-        txtPlaca.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR),
-                BorderFactory.createEmptyBorder(6, 10, 6, 10)
-        ));
+        // Label Placa
+        gbc.gridy = 1;
+        gbc.gridwidth = 1;
+        gbc.insets = new Insets(0, 10, 0, 10);
+        JLabel lblPlaca = new JLabel("Placa:");
+        lblPlaca.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblPlaca.setForeground(TEXT_SECONDARY);
+        panel.add(lblPlaca, gbc);
 
-        JButton btnBuscar = crearBoton("Consultar");
-        btnBuscar.addActionListener(e -> realizarBusqueda());
+        // Campo placa
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        txtPlaca = crearCampoTexto(15);
+        panel.add(txtPlaca, gbc);
 
-        txtPlaca.addActionListener(e -> realizarBusqueda());
-
-        centro.add(new JLabel("Placa:") {{
-            setForeground(TEXT_SECONDARY);
-        }});
-        centro.add(txtPlaca);
-        centro.add(btnBuscar);
-
-        panel.add(titulo, BorderLayout.WEST);
-        panel.add(centro, BorderLayout.CENTER);
+        // Botón Buscar
+        gbc.gridx = 2;
+        gbc.weightx = 0;
+        JButton btnConsultar = crearBoton("Consultar", SUCCESS_COLOR);
+        btnConsultar.addActionListener(e -> consultarBus());
+        panel.add(btnConsultar, gbc);
 
         return panel;
     }
 
-    private JPanel crearPanelResultado() {
-        panelResultado = new JPanel(new BorderLayout());
-        panelResultado.setOpaque(false);
+    /**
+     * Panel central para mostrar resultado (tipo carnet)
+     */
+    private JScrollPane construirPanelResultado() {
+        panelResultado = new JPanel(new GridBagLayout());
+        panelResultado.setBackground(BG_MAIN);
 
-        JLabel mensaje = new JLabel(
-                "<html><div style='text-align: center;'>" +
-                "<span style='font-size: 48px;'>🔍</span><br><br>" +
-                "<span style='font-size: 16px; color: rgb(190,200,215);'>" +
-                "Ingresa una placa para consultar" +
-                "</span></div></html>"
-        );
-        mensaje.setHorizontalAlignment(SwingConstants.CENTER);
+        // Mensaje inicial
+        mostrarMensajeInicial();
 
-        panelResultado.add(mensaje, BorderLayout.CENTER);
-        return panelResultado;
+        JScrollPane scroll = new JScrollPane(panelResultado);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(BG_MAIN);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+
+        return scroll;
     }
 
-    private void realizarBusqueda() {
-        String placa = txtPlaca.getText().trim().toUpperCase();
+    /**
+     * Panel inferior con botones
+     */
+    private JPanel construirPanelBotones() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        panel.setOpaque(false);
+
+        JButton btnLimpiar = crearBoton("Limpiar", PRIMARY_COLOR);
+        btnLimpiar.addActionListener(e -> limpiar());
+
+        JButton btnVolver = crearBoton("⬅ Volver", PRIMARY_COLOR);
+        btnVolver.addActionListener(e -> parent.mostrar(PanelBuses.MENU));
+
+        panel.add(btnLimpiar);
+        panel.add(btnVolver);
+
+        return panel;
+    }
+
+    /**
+     * Mostrar mensaje inicial
+     */
+    private void mostrarMensajeInicial() {
+        panelResultado.removeAll();
+
+        JLabel mensaje = new JLabel("Ingrese una placa y presione Consultar");
+        mensaje.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+        mensaje.setForeground(TEXT_SECONDARY);
+        mensaje.setHorizontalAlignment(SwingConstants.CENTER);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+        gbc.anchor = GridBagConstraints.CENTER;
+
+        panelResultado.add(mensaje, gbc);
+        panelResultado.revalidate();
+        panelResultado.repaint();
+    }
+
+    /**
+     * Consultar bus
+     */
+    private void consultarBus() {
+        // ✅ NO convertir a mayúsculas - debe venir en mayúsculas
+        String placa = txtPlaca.getText().trim();
 
         if (placa.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                    "Por favor ingresa una placa.",
+                    "Por favor ingrese una placa.",
                     "Validación",
                     JOptionPane.WARNING_MESSAGE);
             return;
@@ -116,122 +168,245 @@ public class PanelConsultarBus extends JPanel {
 
         ResultadoOperacion resultado = busService.consultarBusPorPlaca(placa);
 
-        panelResultado.removeAll();
-
         if (resultado.isExito()) {
             Bus bus = (Bus) resultado.getDatos();
-            mostrarResultado(bus);
+            mostrarDatosBus(bus);
         } else {
-            JLabel error = new JLabel(
-                    "<html><div style='text-align: center;'>" +
-                    "<span style='font-size: 48px;'>❌</span><br><br>" +
-                    "<span style='font-size: 16px; color: rgb(231,76,60);'>" +
-                    resultado.getMensaje() +
-                    "</span></div></html>"
-            );
-            error.setHorizontalAlignment(SwingConstants.CENTER);
-            panelResultado.add(error, BorderLayout.CENTER);
+            mostrarMensajeError(resultado.getMensaje());
+            JOptionPane.showMessageDialog(this,
+                    resultado.getMensaje(),
+                    "Información",
+                    JOptionPane.INFORMATION_MESSAGE);
         }
+    }
 
+    /**
+     * Mostrar datos del bus en formato carnet
+     */
+    private void mostrarDatosBus(Bus bus) {
+        panelResultado.removeAll();
+
+        // Panel tipo carnet
+        JPanel carnet = new JPanel(new GridBagLayout());
+        carnet.setBackground(BG_PANEL);
+        carnet.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 2),
+                BorderFactory.createEmptyBorder(25, 30, 25, 30)
+        ));
+        carnet.setPreferredSize(new Dimension(600, 400));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 10, 8, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.anchor = GridBagConstraints.WEST;
+
+        // Título del carnet
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridwidth = 2;
+        JLabel lblTitulo = new JLabel("INFORMACIÓN DEL BUS");
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblTitulo.setForeground(Color.WHITE);
+        lblTitulo.setHorizontalAlignment(SwingConstants.CENTER);
+        carnet.add(lblTitulo, gbc);
+
+        // Separador
+        gbc.gridy = 1;
+        gbc.insets = new Insets(10, 10, 15, 10);
+        JSeparator sep1 = new JSeparator();
+        sep1.setForeground(BORDER_COLOR);
+        carnet.add(sep1, gbc);
+
+        gbc.gridwidth = 1;
+        gbc.insets = new Insets(8, 10, 8, 10);
+
+        // Fila 1: Placa
+        gbc.gridy = 2;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Placa:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelValor(bus.getPlaca()), gbc);
+
+        // Fila 2: Código Socio
+        gbc.gridy = 3;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Código Socio:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelValor(bus.getCodigoSocioFk()), gbc);
+
+        // Fila 3: Marca
+        gbc.gridy = 4;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Marca:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelValor(bus.getMarca()), gbc);
+
+        // Fila 4: Modelo
+        gbc.gridy = 5;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Modelo:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelValor(bus.getModelo()), gbc);
+
+        // Fila 5: Año de Fabricación
+        gbc.gridy = 6;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Año de Fabricación:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelValor(String.valueOf(bus.getAnioFabricacion())), gbc);
+
+        // Fila 6: Capacidad
+        gbc.gridy = 7;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Capacidad:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelValor(bus.getCapacidadPasajeros() + " pasajeros"), gbc);
+
+        // Fila 7: Base Asignada
+        gbc.gridy = 8;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Base Asignada:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelValor(bus.getBaseAsignada()), gbc);
+
+        // Fila 8: Estado (con color)
+        gbc.gridy = 9;
+        gbc.gridx = 0;
+        carnet.add(crearLabelCampo("Estado:"), gbc);
+        gbc.gridx = 1;
+        carnet.add(crearLabelEstado(bus.getEstado()), gbc);
+
+        // Separador final
+        gbc.gridy = 10;
+        gbc.gridx = 0;
+        gbc.gridwidth = 2;
+        gbc.insets = new Insets(15, 10, 10, 10);
+        JSeparator sep2 = new JSeparator();
+        sep2.setForeground(BORDER_COLOR);
+        carnet.add(sep2, gbc);
+
+        // Centrar el carnet
+        GridBagConstraints gbcMain = new GridBagConstraints();
+        gbcMain.gridx = 0;
+        gbcMain.gridy = 0;
+        gbcMain.weightx = 1.0;
+        gbcMain.weighty = 1.0;
+        gbcMain.anchor = GridBagConstraints.CENTER;
+
+        panelResultado.add(carnet, gbcMain);
         panelResultado.revalidate();
         panelResultado.repaint();
     }
 
-    private void mostrarResultado(Bus bus) {
-        JPanel tarjeta = new JPanel(new GridBagLayout());
-        tarjeta.setBackground(BG_PANEL);
-        tarjeta.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR, 2),
-                BorderFactory.createEmptyBorder(24, 32, 24, 32)
-        ));
+    /**
+     * Mostrar mensaje de error
+     */
+    private void mostrarMensajeError(String mensaje) {
+        panelResultado.removeAll();
+
+        JLabel lblError = new JLabel(mensaje);
+        lblError.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblError.setForeground(new Color(231, 76, 60));
+        lblError.setHorizontalAlignment(SwingConstants.CENTER);
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 10, 8, 10);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        int fila = 0;
-
-        // Título
-        JLabel titulo = new JLabel("Bus " + bus.getPlaca());
-        titulo.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        titulo.setForeground(Color.WHITE);
         gbc.gridx = 0;
-        gbc.gridy = fila++;
-        gbc.gridwidth = 4;
-        tarjeta.add(titulo, gbc);
+        gbc.gridy = 0;
+        gbc.weightx = 1.0;
+        gbc.weighty = 1.0;
+        gbc.anchor = GridBagConstraints.CENTER;
 
-        gbc.gridwidth = 1;
-
-        // Datos del bus
-        agregarCampo(tarjeta, gbc, fila++, "Placa:", bus.getPlaca());
-        agregarCampo(tarjeta, gbc, fila++, "Marca:", bus.getMarca());
-        agregarCampo(tarjeta, gbc, fila++, "Modelo:", bus.getModelo());
-        agregarCampo(tarjeta, gbc, fila++, "Año:", String.valueOf(bus.getAnioFabricacion()));
-        agregarCampo(tarjeta, gbc, fila++, "Capacidad:", bus.getCapacidadPasajeros() + " pasajeros");
-        agregarCampo(tarjeta, gbc, fila++, "Base Asignada:", bus.getBaseAsignada());
-        agregarCampo(tarjeta, gbc, fila++, "Estado:", bus.getEstado());
-
-        // Separador
-        JSeparator sep = new JSeparator();
-        sep.setForeground(BORDER_COLOR);
-        gbc.gridx = 0;
-        gbc.gridy = fila++;
-        gbc.gridwidth = 4;
-        gbc.insets = new Insets(15, 10, 15, 10);
-        tarjeta.add(sep, gbc);
-
-        gbc.gridwidth = 1;
-        gbc.insets = new Insets(8, 10, 8, 10);
-
-        // Datos del socio propietario (del JOIN)
-        JLabel lblSocio = new JLabel("Información del Socio Propietario");
-        lblSocio.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblSocio.setForeground(Color.WHITE);
-        gbc.gridx = 0;
-        gbc.gridy = fila++;
-        gbc.gridwidth = 4;
-        tarjeta.add(lblSocio, gbc);
-
-        gbc.gridwidth = 1;
-
-  agregarCampo(tarjeta, gbc, fila++, "Código Socio:", bus.getCodigoSocioFk());
-agregarCampo(tarjeta, gbc, fila++, "Nombres:", bus.getNombresPropietario());
-agregarCampo(tarjeta, gbc, fila++, "Teléfono:", bus.getTelefonoPropietario());
-
-
-        JScrollPane scroll = new JScrollPane(tarjeta);
-        scroll.setBorder(null);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-
-        panelResultado.add(scroll, BorderLayout.CENTER);
+        panelResultado.add(lblError, gbc);
+        panelResultado.revalidate();
+        panelResultado.repaint();
     }
 
-    private void agregarCampo(JPanel panel, GridBagConstraints gbc, int fila, String etiqueta, String valor) {
-        gbc.gridx = 0;
-        gbc.gridy = fila;
-        JLabel lbl = new JLabel(etiqueta);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lbl.setForeground(new Color(205, 215, 230));
-        panel.add(lbl, gbc);
-
-        gbc.gridx = 1;
-        JLabel val = new JLabel(valor);
-        val.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        val.setForeground(Color.WHITE);
-        panel.add(val, gbc);
+    /**
+     * Crear label para nombre de campo
+     */
+    private JLabel crearLabelCampo(String texto) {
+        JLabel label = new JLabel(texto);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        label.setForeground(TEXT_SECONDARY);
+        return label;
     }
 
-    private JButton crearBoton(String texto) {
+    /**
+     * Crear label para valor del campo
+     */
+    private JLabel crearLabelValor(String texto) {
+        JLabel label = new JLabel(texto);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        label.setForeground(Color.WHITE);
+        return label;
+    }
+
+    /**
+     * Crear label para estado con color
+     */
+    private JLabel crearLabelEstado(String estado) {
+        JLabel label = new JLabel(estado);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        label.setOpaque(true);
+        label.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+
+        switch (estado) {
+            case "ACTIVO":
+                label.setBackground(new Color(46, 204, 113));
+                label.setForeground(Color.WHITE);
+                break;
+            case "INACTIVO":
+                label.setBackground(new Color(231, 76, 60));
+                label.setForeground(Color.WHITE);
+                break;
+            case "MANTENIMIENTO":
+                label.setBackground(new Color(241, 196, 15));
+                label.setForeground(Color.BLACK);
+                break;
+            default:
+                label.setForeground(Color.WHITE);
+        }
+
+        return label;
+    }
+
+    /**
+     * Crear campo de texto
+     */
+    private JTextField crearCampoTexto(int columnas) {
+        JTextField campo = new JTextField(columnas);
+        campo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        campo.setBackground(BG_CARD);
+        campo.setForeground(Color.WHITE);
+        campo.setCaretColor(Color.WHITE);
+        campo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                BorderFactory.createEmptyBorder(8, 12, 8, 12)
+        ));
+        return campo;
+    }
+
+    /**
+     * Crear botón
+     */
+    private JButton crearBoton(String texto, Color color) {
         JButton boton = new JButton(texto);
         boton.setFont(new Font("Segoe UI", Font.BOLD, 13));
         boton.setForeground(Color.WHITE);
-        boton.setBackground(PRIMARY_COLOR);
+        boton.setBackground(color);
         boton.setBorderPainted(false);
         boton.setFocusPainted(false);
         boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        boton.setPreferredSize(new Dimension(120, 32));
+        boton.setPreferredSize(new Dimension(140, 38));
         return boton;
+    }
+
+    /**
+     * Limpiar formulario
+     */
+    private void limpiar() {
+        txtPlaca.setText("");
+        mostrarMensajeInicial();
+        txtPlaca.requestFocus();
     }
 }

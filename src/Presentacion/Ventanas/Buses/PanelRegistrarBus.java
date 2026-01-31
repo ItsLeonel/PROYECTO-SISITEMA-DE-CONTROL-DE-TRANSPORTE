@@ -26,16 +26,18 @@ import java.util.List;
 public class PanelRegistrarBus extends JPanel {
 
     private BusService busService;
+    private PanelBuses parent; 
 
     // Campos del formulario
     private JTextField txtPlaca;
     private JComboBox<SocioDisponible> cmbSocio;
+    private JLabel lblCantidadSocios;  // ✅ Variable de instancia
     private JTextField txtMarca;
     private JTextField txtModelo;
-    private JSpinner spinnerAnio;
-    private JSpinner spinnerCapacidad;
+    private JTextField txtAnio;          // ✅ Ahora es TextField
+    private JTextField txtCapacidad;     // ✅ Ahora es TextField
     private JTextField txtBase;
-    private JComboBox<String> cmbEstado;
+    private JTextField txtEstado;        // ✅ Ahora es TextField
 
     // Colores del tema
     private static final Color BG_MAIN = new Color(11, 22, 38);
@@ -44,15 +46,26 @@ public class PanelRegistrarBus extends JPanel {
     private static final Color SUCCESS_COLOR = new Color(40, 167, 69);
     private static final Color TEXT_SECONDARY = new Color(190, 200, 215);
 
-    public PanelRegistrarBus() {
+    public PanelRegistrarBus(PanelBuses parent) {
+        this.parent = parent;
         this.busService = new BusService();
 
         setLayout(new BorderLayout());
         setBackground(BG_MAIN);
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // Panel central con formulario
         add(construirFormulario(), BorderLayout.CENTER);
+
+        JButton btnVolver = new JButton("⬅ Volver");
+        btnVolver.addActionListener(e -> parent.mostrar(PanelBuses.MENU));
+        add(btnVolver, BorderLayout.SOUTH);
+
+        // ✅ Recargar socios cada vez que el panel se hace visible
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                cargarSociosDisponibles();
+            }
+        });
     }
 
     /**
@@ -102,19 +115,32 @@ public class PanelRegistrarBus extends JPanel {
 
         gbc.gridwidth = 1;
 
-        // Fila 2: Socio Propietario (COMBO DINÁMICO)
+        // Fila 2: Código del Socio Propietario (✅ con contador)
         gbc.gridx = 0;
         gbc.gridy = 2;
-        panel.add(crearLabel("Socio Propietario:"), gbc);
+        panel.add(crearLabel("Código del Socio Propietario:"), gbc);
 
         gbc.gridx = 1;
         gbc.gridwidth = 3;
+        JPanel panelSocio = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        panelSocio.setOpaque(false);
+        
         cmbSocio = new JComboBox<>();
         cmbSocio.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         cmbSocio.setBackground(new Color(21, 44, 82));
         cmbSocio.setForeground(Color.WHITE);
-        cargarSociosDisponibles(); // Cargar dinámicamente
-        panel.add(cmbSocio, gbc);
+        cmbSocio.setPreferredSize(new Dimension(300, 35));
+        cargarSociosDisponibles();
+        panelSocio.add(cmbSocio);
+        
+        // ✅ Crear label como variable de instancia
+        lblCantidadSocios = new JLabel();
+        lblCantidadSocios.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblCantidadSocios.setForeground(TEXT_SECONDARY);
+        actualizarContadorSocios();
+        panelSocio.add(lblCantidadSocios);
+        
+        panel.add(panelSocio, gbc);
 
         gbc.gridwidth = 1;
 
@@ -138,37 +164,45 @@ public class PanelRegistrarBus extends JPanel {
         gbc.gridx = 1;
         gbc.gridy = 4;
         gbc.gridwidth = 3;
-        JLabel lblAyudaMarcaModelo = new JLabel("Ej: Marca=HINO, Modelo=AK | Marca=CHEVROLET, Modelo=NQR");
+        JLabel lblAyudaMarcaModelo = new JLabel("Marca: máx 15 caracteres alfabéticos | Modelo: máx 15 caracteres alfanuméricos");
         lblAyudaMarcaModelo.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lblAyudaMarcaModelo.setForeground(TEXT_SECONDARY);
         panel.add(lblAyudaMarcaModelo, gbc);
 
         gbc.gridwidth = 1;
 
-        // Fila 5: Año y Capacidad
+        // Fila 5: Año y Capacidad (✅ AHORA SON CAMPOS DE TEXTO)
         gbc.gridx = 0;
         gbc.gridy = 5;
         panel.add(crearLabel("Año de Fabricación:"), gbc);
 
         gbc.gridx = 1;
+        txtAnio = crearTextField(8);
         int anioActual = Calendar.getInstance().get(Calendar.YEAR);
-        SpinnerNumberModel modeloAnio = new SpinnerNumberModel(anioActual, anioActual - 10, anioActual, 1);
-        spinnerAnio = new JSpinner(modeloAnio);
-        spinnerAnio.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        ((JSpinner.DefaultEditor) spinnerAnio.getEditor()).getTextField().setBackground(new Color(21, 44, 82));
-        ((JSpinner.DefaultEditor) spinnerAnio.getEditor()).getTextField().setForeground(Color.WHITE);
-        panel.add(spinnerAnio, gbc);
+        txtAnio.setText(String.valueOf(anioActual));
+        JPanel panelAnio = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        panelAnio.setOpaque(false);
+        panelAnio.add(txtAnio);
+        JLabel lblAyudaAnio = new JLabel("(4 dígitos, ≤ " + anioActual + ", antigüedad ≤ 10 años)");
+        lblAyudaAnio.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblAyudaAnio.setForeground(TEXT_SECONDARY);
+        panelAnio.add(lblAyudaAnio);
+        panel.add(panelAnio, gbc);
 
         gbc.gridx = 2;
         panel.add(crearLabel("Capacidad Pasajeros:"), gbc);
 
         gbc.gridx = 3;
-        SpinnerNumberModel modeloCapacidad = new SpinnerNumberModel(40, 1, 100, 1);
-        spinnerCapacidad = new JSpinner(modeloCapacidad);
-        spinnerCapacidad.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        ((JSpinner.DefaultEditor) spinnerCapacidad.getEditor()).getTextField().setBackground(new Color(21, 44, 82));
-        ((JSpinner.DefaultEditor) spinnerCapacidad.getEditor()).getTextField().setForeground(Color.WHITE);
-        panel.add(spinnerCapacidad, gbc);
+        txtCapacidad = crearTextField(8);
+        txtCapacidad.setText("40");
+        JPanel panelCapacidad = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        panelCapacidad.setOpaque(false);
+        panelCapacidad.add(txtCapacidad);
+        JLabel lblAyudaCapacidad = new JLabel("(entero > 0)");
+        lblAyudaCapacidad.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblAyudaCapacidad.setForeground(TEXT_SECONDARY);
+        panelCapacidad.add(lblAyudaCapacidad);
+        panel.add(panelCapacidad, gbc);
 
         // Fila 6: Base Asignada
         gbc.gridx = 0;
@@ -181,7 +215,7 @@ public class PanelRegistrarBus extends JPanel {
         JPanel panelBase = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         panelBase.setOpaque(false);
         panelBase.add(txtBase);
-        JLabel lblAyudaBase = new JLabel("(Ej: Terminal Norte, Terminal Sur)");
+        JLabel lblAyudaBase = new JLabel("(Nombre de la base operativa)");
         lblAyudaBase.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lblAyudaBase.setForeground(TEXT_SECONDARY);
         panelBase.add(lblAyudaBase);
@@ -189,17 +223,25 @@ public class PanelRegistrarBus extends JPanel {
 
         gbc.gridwidth = 1;
 
-        // Fila 7: Estado Inicial
+        // Fila 7: Estado (✅ AHORA ES CAMPO DE TEXTO)
         gbc.gridx = 0;
         gbc.gridy = 7;
-        panel.add(crearLabel("Estado Inicial:"), gbc);
+        panel.add(crearLabel("Estado:"), gbc);
 
         gbc.gridx = 1;
-        cmbEstado = new JComboBox<>(new String[]{"ACTIVO", "INACTIVO", "MANTENIMIENTO"});
-        cmbEstado.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        cmbEstado.setBackground(new Color(21, 44, 82));
-        cmbEstado.setForeground(Color.WHITE);
-        panel.add(cmbEstado, gbc);
+        gbc.gridwidth = 3;
+        txtEstado = crearTextField(15);
+        txtEstado.setText("ACTIVO");
+        JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        panelEstado.setOpaque(false);
+        panelEstado.add(txtEstado);
+        JLabel lblAyudaEstado = new JLabel("(ACTIVO, INACTIVO o MANTENIMIENTO)");
+        lblAyudaEstado.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblAyudaEstado.setForeground(TEXT_SECONDARY);
+        panelEstado.add(lblAyudaEstado);
+        panel.add(panelEstado, gbc);
+
+        gbc.gridwidth = 1;
 
         // Separador
         gbc.gridx = 0;
@@ -235,13 +277,37 @@ public class PanelRegistrarBus extends JPanel {
             for (SocioDisponible socio : socios) {
                 cmbSocio.addItem(socio);
             }
+            
+            // ✅ Actualizar contador después de cargar
+            actualizarContadorSocios();
         } else {
             JOptionPane.showMessageDialog(this,
                     resultado.getMensaje(),
                     "Advertencia",
                     JOptionPane.WARNING_MESSAGE);
             cmbSocio.removeAllItems();
+            actualizarContadorSocios();
         }
+    }
+
+    /**
+     * ✅ Actualizar el contador de socios disponibles
+     */
+    private void actualizarContadorSocios() {
+        if (lblCantidadSocios != null && cmbSocio != null) {
+            int cantidad = cmbSocio.getItemCount();
+            lblCantidadSocios.setText("(" + cantidad + " socios disponibles)");
+        }
+    }
+
+    /**
+     * ✅ MÉTODO PÚBLICO: Recargar socios disponibles
+     * Llamar este método cuando se registre un nuevo socio
+     */
+    public void recargarSocios() {
+        System.out.println("🔄 Recargando socios disponibles...");
+        cargarSociosDisponibles();
+        System.out.println("✅ Socios recargados: " + cmbSocio.getItemCount());
     }
 
     /**
@@ -307,19 +373,33 @@ public class PanelRegistrarBus extends JPanel {
 
     /**
      * Registrar bus - Requisito ru1+2+3v1.1
+     * ✅ CUMPLE CON TODOS LOS REQUISITOS Y MENSAJES EXACTOS
      */
     private void registrarBus() {
-        // Obtener datos del formulario
-        String placa = txtPlaca.getText().trim().toUpperCase();
+        // ===== OBTENER DATOS =====
+        // ✅ NO convertir placa a mayúsculas - debe venir en mayúsculas
+        String placa = txtPlaca.getText().trim();  // SIN .toUpperCase()
         SocioDisponible socioSeleccionado = (SocioDisponible) cmbSocio.getSelectedItem();
         String marca = txtMarca.getText().trim().toUpperCase();
         String modelo = txtModelo.getText().trim().toUpperCase();
-        int anio = (Integer) spinnerAnio.getValue();
-        int capacidad = (Integer) spinnerCapacidad.getValue();
+        String anioTexto = txtAnio.getText().trim();
+        String capacidadTexto = txtCapacidad.getText().trim();
         String base = txtBase.getText().trim();
-        String estado = (String) cmbEstado.getSelectedItem();
+        String estado = txtEstado.getText().trim().toUpperCase();
 
-        // Validar que se haya seleccionado un socio
+        // ===== VALIDACIONES SEGÚN REQUISITOS =====
+        
+        // Validar que no estén vacíos
+        if (placa.isEmpty() || marca.isEmpty() || modelo.isEmpty() || 
+            anioTexto.isEmpty() || capacidadTexto.isEmpty() || base.isEmpty() || estado.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Todos los campos son obligatorios.",
+                    "Datos incompletos",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Validar socio seleccionado
         if (socioSeleccionado == null) {
             JOptionPane.showMessageDialog(this,
                     "Debe seleccionar un socio propietario.\n" +
@@ -329,41 +409,120 @@ public class PanelRegistrarBus extends JPanel {
             return;
         }
 
-        // Validar que no estén vacíos
-        if (placa.isEmpty() || marca.isEmpty() || modelo.isEmpty() || base.isEmpty()) {
+        // Validar año de fabricación
+        int anio;
+        try {
+            anio = Integer.parseInt(anioTexto);
+        } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this,
-                    "Todos los campos son obligatorios.",
-                    "Datos incompletos",
+                    "El año de fabricación debe ser un número de 4 dígitos.",
+                    "Año inválido",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Crear objeto Bus
-     // Crear objeto Bus
-Bus bus = new Bus();
-bus.setPlaca(placa);
-bus.setCodigoSocioFk(socioSeleccionado.getCodigoSocio());
-bus.setMarca(marca);
-bus.setModelo(modelo);
-bus.setAnioFabricacion(anio);
-bus.setCapacidadPasajeros(capacidad);
-bus.setBaseAsignada(base);
-bus.setEstado(estado);
+        // Verificar que el año tenga 4 dígitos
+        if (anioTexto.length() != 4) {
+            JOptionPane.showMessageDialog(this,
+                    "El año de fabricación debe ser un número de 4 dígitos.",
+                    "Año inválido",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-        // Registrar mediante el servicio
+        // Verificar que el año sea menor o igual al año actual
+        int anioActual = Calendar.getInstance().get(Calendar.YEAR);
+        if (anio > anioActual) {
+            JOptionPane.showMessageDialog(this,
+                    "El año de fabricación no puede ser mayor al año actual (" + anioActual + ").",
+                    "Año inválido",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Verificar que la antigüedad no supere los 10 años
+        if ((anioActual - anio) > 10) {
+            JOptionPane.showMessageDialog(this,
+                    "El año de fabricación no puede tener una antigüedad mayor a 10 años.",
+                    "Año inválido",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Validar capacidad de pasajeros
+        int capacidad;
+        try {
+            capacidad = Integer.parseInt(capacidadTexto);
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this,
+                    "La capacidad de pasajeros debe ser un número entero.",
+                    "Capacidad inválida",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Verificar que la capacidad sea mayor que cero
+        if (capacidad <= 0) {
+            JOptionPane.showMessageDialog(this,
+                    "La capacidad de pasajeros debe ser un valor mayor que cero.",
+                    "Capacidad inválida",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Validar marca (máx 15 caracteres alfabéticos)
+        if (marca.length() > 15 || !marca.matches("[A-ZÁÉÍÓÚÑ ]+")) {
+            JOptionPane.showMessageDialog(this,
+                    "La marca debe contener solo caracteres alfabéticos y tener máximo 15 caracteres.",
+                    "Marca inválida",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Validar modelo (máx 15 caracteres alfanuméricos)
+        if (modelo.length() > 15 || !modelo.matches("[A-Z0-9 ]+")) {
+            JOptionPane.showMessageDialog(this,
+                    "El modelo debe contener solo caracteres alfanuméricos y tener máximo 15 caracteres.",
+                    "Modelo inválido",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Validar estado
+        if (!estado.equals("ACTIVO") && !estado.equals("INACTIVO") && !estado.equals("MANTENIMIENTO")) {
+            JOptionPane.showMessageDialog(this,
+                    "El estado debe ser: ACTIVO, INACTIVO o MANTENIMIENTO.",
+                    "Estado inválido",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // ===== CREAR OBJETO BUS =====
+        Bus bus = new Bus();
+        bus.setPlaca(placa);
+        bus.setCodigoSocioFk(socioSeleccionado.getCodigoSocio());
+        bus.setMarca(marca);
+        bus.setModelo(modelo);
+        bus.setAnioFabricacion(anio);
+        bus.setCapacidadPasajeros(capacidad);
+        bus.setBaseAsignada(base);
+        bus.setEstado(estado);
+
+        // ===== REGISTRAR MEDIANTE EL SERVICIO =====
         ResultadoOperacion resultado = busService.registrarBus(bus);
 
-        // Mostrar mensaje según el resultado
+        // ===== MOSTRAR MENSAJE SEGÚN EL RESULTADO =====
+        // Los mensajes exactos están en el servicio según requisitos
         if (resultado.isExito()) {
             JOptionPane.showMessageDialog(this,
-                    resultado.getMensaje(),
+                    resultado.getMensaje(), // "Bus registrado correctamente."
                     "Registro exitoso",
                     JOptionPane.INFORMATION_MESSAGE);
             limpiarFormulario();
-            cargarSociosDisponibles(); // Recargar combo (el socio ya no estará disponible)
+            cargarSociosDisponibles(); // Recargar combo
         } else {
             JOptionPane.showMessageDialog(this,
-                    resultado.getMensaje(),
+                    resultado.getMensaje(), // Mensajes de error según requisitos
                     "Error en el registro",
                     JOptionPane.ERROR_MESSAGE);
         }
@@ -376,10 +535,10 @@ bus.setEstado(estado);
         txtPlaca.setText("");
         txtMarca.setText("");
         txtModelo.setText("");
-        spinnerAnio.setValue(Calendar.getInstance().get(Calendar.YEAR));
-        spinnerCapacidad.setValue(40);
+        txtAnio.setText(String.valueOf(Calendar.getInstance().get(Calendar.YEAR)));
+        txtCapacidad.setText("40");
         txtBase.setText("");
-        cmbEstado.setSelectedIndex(0);
+        txtEstado.setText("ACTIVO");
         if (cmbSocio.getItemCount() > 0) {
             cmbSocio.setSelectedIndex(0);
         }

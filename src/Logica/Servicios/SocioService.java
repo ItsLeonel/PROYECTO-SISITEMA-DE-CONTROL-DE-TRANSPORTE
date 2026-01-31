@@ -18,7 +18,7 @@ public class SocioService {
     // Patrones de validación según anexos
     private static final Pattern PATTERN_CODIGO_SOCIO = Pattern.compile("^\\d{2}$");
     private static final Pattern PATTERN_REGISTRO_MUNICIPAL = Pattern.compile("^\\d{4}$");
-    private static final Pattern PATTERN_CEDULA = Pattern.compile("^\\d{10}$");
+    //private static final Pattern PATTERN_CEDULA = Pattern.compile("^\\d{10}$");
     private static final Pattern PATTERN_CELULAR = Pattern.compile("^09\\d{8}$");
     private static final Pattern PATTERN_NOMBRES = Pattern.compile("^[a-zA-ZñÑáéíóúÁÉÍÓÚ ]{1,100}$");
 
@@ -138,7 +138,7 @@ public class SocioService {
             
             if (!validarNumeroCelular(nuevoNumeroCelular)) {
                 return new ResultadoOperacion(false, 
-                    "El número de celular ingresado es inválido.");
+                    "No se puede registrar el socio: el número de celular ingresado es inválido.");
             }
             
             // Verificar que el socio existe

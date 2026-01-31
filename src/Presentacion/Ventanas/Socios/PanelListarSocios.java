@@ -13,8 +13,6 @@ import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-
-//import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.File;
@@ -34,8 +32,6 @@ public class PanelListarSocios extends JPanel {
     
     // Colores del tema
     private static final Color PRIMARY_COLOR = new Color(41, 98, 255);
-   // private static final Color SUCCESS_COLOR = new Color(40, 167, 69);
-    //private static final Color SECONDARY_COLOR = new Color(108, 117, 125);
 
     private SocioService socioService;
     private JTable tabla;
@@ -62,67 +58,73 @@ public class PanelListarSocios extends JPanel {
     /**
      * Panel superior con filtros y botones
      */
-private JPanel construirPanelSuperior() {
-    JPanel panel = new JPanel(new BorderLayout());
-    panel.setBackground(Color.WHITE);
-    panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(220, 220, 220), 1),
-            BorderFactory.createEmptyBorder(15, 20, 15, 20)
-    ));
+    private JPanel construirPanelSuperior() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220), 1),
+                BorderFactory.createEmptyBorder(15, 20, 15, 20)
+        ));
 
-    // ===== PANEL IZQUIERDO: VOLVER + TÍTULO =====
-    JPanel panelIzq = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-    panelIzq.setOpaque(false);
+        // ===== PANEL IZQUIERDO: VOLVER + TÍTULO =====
+        JPanel panelIzq = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        panelIzq.setOpaque(false);
 
-    JButton btnVolver = new JButton("Volver");
-    btnVolver.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-    btnVolver.setFocusPainted(false);
-    btnVolver.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        JButton btnVolver = new JButton(" Volver");
+        btnVolver.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnVolver.setFocusPainted(false);
+        btnVolver.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-    btnVolver.addActionListener(e -> {
-        Container parent = SwingUtilities.getAncestorOfClass(PanelSocios.class, this);
-        if (parent instanceof PanelSocios) {
-            ((PanelSocios) parent).mostrarVista(PanelSocios.MENU);
-        }
-    });
+        btnVolver.addActionListener(e -> {
+            Container parent = SwingUtilities.getAncestorOfClass(PanelSocios.class, this);
+            if (parent instanceof PanelSocios) {
+                ((PanelSocios) parent).mostrarVista(PanelSocios.MENU);
+            }
+        });
 
-    JLabel lblTitulo = new JLabel("Listado de Socios Propietarios");
-    lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
-    lblTitulo.setForeground(PRIMARY_COLOR);
+        JLabel lblTitulo = new JLabel("Listado de Socios");
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblTitulo.setForeground(PRIMARY_COLOR);
 
-    panelIzq.add(btnVolver);
-    panelIzq.add(lblTitulo);
+        panelIzq.add(btnVolver);
+        panelIzq.add(lblTitulo);
 
-    // ===== PANEL DERECHO: CONTROLES =====
-    JPanel panelControles = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
-    panelControles.setOpaque(false);
+        // ===== PANEL DERECHO: FILTROS + BOTONES =====
+        JPanel panelControles = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 10));
+        panelControles.setOpaque(false);
 
-    JLabel lblFiltro = new JLabel("Estado:");
-    lblFiltro.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        // Filtro de estado
+        JLabel lblFiltro = new JLabel("Estado:");
+        lblFiltro.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
-    cmbFiltroEstado = new JComboBox<>(new String[]{"Todos", "ACTIVO", "INACTIVO"});
-    cmbFiltroEstado.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-    cmbFiltroEstado.addActionListener(e -> filtrarSocios());
+        cmbFiltroEstado = new JComboBox<>(new String[]{"Todos", "ACTIVO", "INACTIVO"});
+        cmbFiltroEstado.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        cmbFiltroEstado.setPreferredSize(new Dimension(120, 30));
 
-    JButton btnActualizar = crearBoton("Actualizar", PRIMARY_COLOR);
-    btnActualizar.addActionListener(e -> cargarSocios());
+        // ✅ Botón Listar (aplica el filtro)
+        JButton btnListar = crearBoton("Listar", PRIMARY_COLOR);
+        btnListar.addActionListener(e -> filtrarSocios());
 
-    JButton btnExportar = crearBoton("Exportar Excel", PRIMARY_COLOR);
-    btnExportar.addActionListener(e -> exportarSocios());
+        // Botón Actualizar
+        JButton btnActualizar = crearBoton("Actualizar", PRIMARY_COLOR);
+        btnActualizar.addActionListener(e -> cargarSocios());
 
-    panelControles.add(lblFiltro);
-    panelControles.add(cmbFiltroEstado);
-    panelControles.add(btnActualizar);
-    panelControles.add(btnExportar);
+        // Botón Exportar
+        JButton btnExportar = crearBoton("Exportar Excel", PRIMARY_COLOR);
+        btnExportar.addActionListener(e -> exportarSocios());
 
-    // ===== ENSAMBLAR =====
-    panel.add(panelIzq, BorderLayout.WEST);
-    panel.add(panelControles, BorderLayout.EAST);
+        panelControles.add(lblFiltro);
+        panelControles.add(cmbFiltroEstado);
+        panelControles.add(btnListar);
+        panelControles.add(btnActualizar);
+        panelControles.add(btnExportar);
 
-    return panel;
-}
+        // ===== ENSAMBLAR =====
+        panel.add(panelIzq, BorderLayout.WEST);
+        panel.add(panelControles, BorderLayout.EAST);
 
-
+        return panel;
+    }
 
     /**
      * Panel con tabla
@@ -245,98 +247,101 @@ private JPanel construirPanelSuperior() {
         boton.setPreferredSize(new Dimension(130, 32));
         return boton;
     }
+
+    /**
+     * Exportar socios a Excel
+     */
     private void exportarSocios() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File("Socios_Export.xlsx"));
 
-    JFileChooser chooser = new JFileChooser();
-    chooser.setSelectedFile(new File("Socios_Export.xlsx"));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
 
-    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
-        return;
+        String ruta = chooser.getSelectedFile().getAbsolutePath();
+        if (!ruta.endsWith(".xlsx")) {
+            ruta += ".xlsx";
+        }
+
+        ResultadoOperacion resultado = socioService.listarSocios();
+        if (!resultado.isExito()) {
+            JOptionPane.showMessageDialog(this,
+                    resultado.getMensaje(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try {
+            exportarAExcel((java.util.List<Socio>) resultado.getDatos(), ruta);
+            JOptionPane.showMessageDialog(this,
+                    "El archivo de socios propietarios se ha exportado correctamente.",
+                    "Exportación exitosa",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this,
+                    e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }
 
-    String ruta = chooser.getSelectedFile().getAbsolutePath();
-    if (!ruta.endsWith(".xlsx")) {
-        ruta += ".xlsx";
+    /**
+     * Generar archivo Excel
+     */
+    private void exportarAExcel(java.util.List<Socio> socios, String ruta) throws IOException {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Socios Propietarios");
+
+        // ===== ESTILO ENCABEZADO =====
+        org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerFont.setColor(IndexedColors.WHITE.getIndex());
+
+        CellStyle headerStyle = workbook.createCellStyle();
+        headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        headerStyle.setFont(headerFont);
+
+        String[] columnas = {
+            "Código Socio",
+            "Registro Municipal",
+            "Cédula",
+            "Nombres Completos",
+            "Número Celular",
+            "Placa Bus",
+            "Estado"
+        };
+
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < columnas.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(columnas[i]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        int rowNum = 1;
+        for (Socio socio : socios) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(socio.getCodigoSocio());
+            row.createCell(1).setCellValue(socio.getRegistroMunicipal());
+            row.createCell(2).setCellValue(socio.getCedula());
+            row.createCell(3).setCellValue(socio.getNombresCompletos());
+            row.createCell(4).setCellValue(socio.getNumeroCelular());
+            row.createCell(5).setCellValue(
+                socio.getPlacaBusAsociado() == null ? "Sin asignar" : socio.getPlacaBusAsociado()
+            );
+            row.createCell(6).setCellValue(socio.getEstado());
+        }
+
+        for (int i = 0; i < columnas.length; i++) {
+            sheet.autoSizeColumn(i);
+        }
+
+        try (FileOutputStream out = new FileOutputStream(ruta)) {
+            workbook.write(out);
+        }
+        workbook.close();
     }
-
-    ResultadoOperacion resultado = socioService.listarSocios();
-    if (!resultado.isExito()) {
-        JOptionPane.showMessageDialog(this,
-                resultado.getMensaje(),
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
-        return;
-    }
-
-    try {
-        exportarAExcel((java.util.List<Socio>) resultado.getDatos(), ruta);
-        JOptionPane.showMessageDialog(this,
-                "El archivo de socios propietarios se ha exportado correctamente.",
-                "Exportación exitosa",
-                JOptionPane.INFORMATION_MESSAGE);
-    } catch (IOException e) {
-        JOptionPane.showMessageDialog(this,
-                e.getMessage(),
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
-    }
-}
-private void exportarAExcel(java.util.List<Socio> socios, String ruta) throws IOException {
-
-    Workbook workbook = new XSSFWorkbook();
-    Sheet sheet = workbook.createSheet("Socios Propietarios");
-
-    // ===== ESTILO ENCABEZADO (USAR FONT DE POI) =====
-    org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
-    headerFont.setBold(true);
-    headerFont.setColor(IndexedColors.WHITE.getIndex());
-
-    CellStyle headerStyle = workbook.createCellStyle();
-    headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
-    headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-    headerStyle.setFont(headerFont);
-String[] columnas = {
-    "Código Socio",
-    "Registro Municipal",
-    "Cédula",
-    "Nombres Completos",
-    "Número Celular",
-    "Placa Bus",
-    "Estado"
-};
-
-
-    Row headerRow = sheet.createRow(0);
-    for (int i = 0; i < columnas.length; i++) {
-        Cell cell = headerRow.createCell(i);
-        cell.setCellValue(columnas[i]);
-        cell.setCellStyle(headerStyle);
-    }
-
-    int rowNum = 1;
-    for (Socio socio : socios) {
-        Row row = sheet.createRow(rowNum++);
-        row.createCell(0).setCellValue(socio.getCodigoSocio());
-        row.createCell(1).setCellValue(socio.getRegistroMunicipal());
-        row.createCell(2).setCellValue(socio.getCedula());
-        row.createCell(3).setCellValue(socio.getNombresCompletos());
-        row.createCell(4).setCellValue(socio.getNumeroCelular());
-       row.createCell(5).setCellValue(
-    socio.getPlacaBusAsociado() == null ? "Sin asignar" : socio.getPlacaBusAsociado()
-);
-row.createCell(6).setCellValue(socio.getEstado());
-
-    }
-
-    for (int i = 0; i < columnas.length; i++) {
-        sheet.autoSizeColumn(i);
-    }
-
-    try (FileOutputStream out = new FileOutputStream(ruta)) {
-        workbook.write(out);
-    }
-    workbook.close();
-}
-
-
 }

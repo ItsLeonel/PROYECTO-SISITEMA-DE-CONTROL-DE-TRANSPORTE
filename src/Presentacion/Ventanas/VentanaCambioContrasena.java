@@ -199,7 +199,7 @@ public class VentanaCambioContrasena extends JDialog {
 
                 if (!hashActual.equalsIgnoreCase(pd.hash)) {
                     JOptionPane.showMessageDialog(this,
-                            "No se pudo cambiar la contraseña: la contraseña actual no corresponde al usuario.",
+                            "La contraseña temporal ingresada es incorrecta.",
                             "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
@@ -224,7 +224,7 @@ public class VentanaCambioContrasena extends JDialog {
                 dao.actualizarPassword(idUsuario, nuevoHash, nuevoSalt, false);
 
                 JOptionPane.showMessageDialog(this,
-                        "Contraseña actualizada correctamente.",
+                        "Contraseña actualizada correctamente. Acceso completo habilitado.",
                         "",
                         JOptionPane.INFORMATION_MESSAGE);
 

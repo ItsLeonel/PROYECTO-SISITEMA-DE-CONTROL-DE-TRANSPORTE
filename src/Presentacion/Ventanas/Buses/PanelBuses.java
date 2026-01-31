@@ -1,60 +1,81 @@
 package Presentacion.Ventanas.Buses;
 
 import javax.swing.*;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.CardLayout;
-
-import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.*;
+import java.awt.event.ActionListener;
+import java.net.URL;
 
 /**
  * Panel Principal del Módulo de Buses
- * Menú de navegación con botones grandes estilo azul marino
+ * Menú estilo dashboard (igual a Socios)
+ * ✅ MEJORADO: Recarga automática de socios al cambiar de vista
  */
 public class PanelBuses extends JPanel {
 
+    // ===== CardLayout =====
     private CardLayout cardLayout;
     private JPanel panelContenido;
-    
-    // Colores del tema azul marino
+
+    // ✅ Referencias a los paneles
+    private PanelRegistrarBus panelRegistrarBus;
+    private PanelConsultarBus panelConsultarBus;
+    private PanelListarBuses panelListarBuses;
+    private PanelAsignarBases panelAsignarBases;
+
+    // ===== Colores =====
     private static final Color BG_MAIN = new Color(11, 22, 38);
-    private static final Color BG_PANEL = new Color(18, 36, 64);
+    private static final Color BG_CARD = new Color(16, 32, 58, 220);
+    private static final Color BORDER_CARD = new Color(40, 80, 140);
     private static final Color BTN_PRIMARY = new Color(33, 90, 190);
     private static final Color BTN_SUCCESS = new Color(40, 167, 69);
     private static final Color TEXT_SECONDARY = new Color(190, 200, 215);
+
+    // ===== Vistas =====
+    public static final String MENU = "MENU";
+    public static final String REGISTRAR = "REGISTRAR";
+    public static final String CONSULTAR = "CONSULTAR";
+    public static final String LISTAR = "LISTAR";
+    public static final String BASES = "BASES";
 
     public PanelBuses() {
         setLayout(new BorderLayout());
         setBackground(BG_MAIN);
 
-        // Header del módulo
         add(construirHeader(), BorderLayout.NORTH);
 
-        // Menú de navegación
-        add(construirMenu(), BorderLayout.CENTER);
+        cardLayout = new CardLayout();
+        panelContenido = new JPanel(cardLayout);
+        panelContenido.setBackground(BG_MAIN);
+
+        // ✅ Crear paneles y guardar referencias
+        panelRegistrarBus = new PanelRegistrarBus(this);
+        panelConsultarBus = new PanelConsultarBus(this);
+        panelListarBuses = new PanelListarBuses(this);
+        panelAsignarBases = new PanelAsignarBases(this);
+
+        panelContenido.add(construirMenu(), MENU);
+        panelContenido.add(panelRegistrarBus, REGISTRAR);
+        panelContenido.add(panelConsultarBus, CONSULTAR);
+        panelContenido.add(panelListarBuses, LISTAR);
+        panelContenido.add(panelAsignarBases, BASES);
+
+        add(panelContenido, BorderLayout.CENTER);
+        mostrar(MENU);
     }
 
-    /**
-     * Construir header del módulo
-     */
+    // ===== HEADER =====
     private JPanel construirHeader() {
-        JPanel header = new JPanel();
-        header.setLayout(new BorderLayout());
-        header.setBackground(BTN_PRIMARY);
-        header.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(10, 18, 34));
+        header.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(40, 80, 140)),
+                BorderFactory.createEmptyBorder(20, 30, 20, 30)
+        ));
 
-        // Título
         JLabel titulo = new JLabel("Gestión de Buses");
         titulo.setFont(new Font("Segoe UI", Font.BOLD, 24));
         titulo.setForeground(Color.WHITE);
 
-        // Subtítulo
         JLabel subtitulo = new JLabel("Administración de la flota de buses de la compañía");
         subtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitulo.setForeground(new Color(255, 255, 255, 200));
@@ -67,157 +88,162 @@ public class PanelBuses extends JPanel {
         textos.add(subtitulo);
 
         header.add(textos, BorderLayout.WEST);
-
         return header;
     }
 
-    /**
-     * Construir menú principal con botones grandes
-     */
+    // ===== MENÚ (centrado y compacto) =====
     private JPanel construirMenu() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(BG_MAIN);
-        panel.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
+        JPanel grid = new JPanel(new GridBagLayout());
+        grid.setOpaque(false);
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(15, 15, 15, 15);
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weightx = 1.0;
-        gbc.weighty = 1.0;
+        gbc.insets = new Insets(25, 25, 25, 25);
+        gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
 
-        // Fila 1: Registrar Bus | Consultar Bus
-        gbc.gridx = 0;
+        // FILA 1
         gbc.gridy = 0;
-        panel.add(crearBotonMenu(
-            "Registrar Bus",
-            "Registrar un nuevo bus asignándolo a un socio propietario",
-            "➕",
-            BTN_SUCCESS,
-            e -> abrirPanel(new PanelRegistrarBus())
+        gbc.gridx = 0;
+        grid.add(crearBotonMenu(
+                "Registrar Bus",
+                "Registrar un nuevo bus",
+                "/Presentacion/Recursos/icons/X.png",
+                BTN_SUCCESS,
+                e -> mostrar(REGISTRAR)
         ), gbc);
 
         gbc.gridx = 1;
-        panel.add(crearBotonMenu(
-            "Consultar Bus",
-            "Buscar y ver detalles de un bus por placa",
-            "🔍",
-            BTN_PRIMARY,
-            e -> abrirPanel(new PanelConsultarBus())
+        grid.add(crearBotonMenu(
+                "Consultar Bus",
+                "Buscar bus por placa",
+                "/Presentacion/Recursos/icons/Z.png",
+                BTN_PRIMARY,
+                e -> mostrar(CONSULTAR)
         ), gbc);
 
-        // Fila 2: Listar Flota | Gestionar Estados
-        gbc.gridx = 0;
+        // FILA 2
         gbc.gridy = 1;
-        panel.add(crearBotonMenu(
-            "Listar Flota",
-            "Ver tabla completa con todos los buses y sus propietarios",
-            "📋",
-            BTN_PRIMARY,
-            e -> abrirPanel(new PanelListarBuses())
-        ), gbc);
-
-        gbc.gridx = 1;
-        panel.add(crearBotonMenu(
-            "Gestionar Estados",
-            "Activar, desactivar o enviar buses a mantenimiento",
-            "⚙️",
-            BTN_PRIMARY,
-            e -> abrirPanel(new PanelGestionarEstados())
-        ), gbc);
-
-        // Fila 3: Asignar Bases | Exportar
         gbc.gridx = 0;
-        gbc.gridy = 2;
-        panel.add(crearBotonMenu(
-            "Asignar Bases",
-            "Cambiar la base operativa asignada a un bus",
-            "📍",
-            BTN_PRIMARY,
-            e -> abrirPanel(new PanelAsignarBases())
+        grid.add(crearBotonMenu(
+                "Listar Flota",
+                "Ver todos los buses",
+                "/Presentacion/Recursos/icons/Y.png",
+                BTN_PRIMARY,
+                e -> mostrar(LISTAR)
         ), gbc);
 
         gbc.gridx = 1;
-        panel.add(crearBotonMenu(
-            "Exportar Listados",
-            "Exportar listados de buses a Excel",
-            "📤",
-            new Color(0, 150, 136),
-            e -> abrirPanel(new PanelExportarBuses())
+        grid.add(crearBotonMenu(
+                "Asignar Bases",
+                "Cambiar base operativa",
+                "/Presentacion/Recursos/icons/W.png",
+                BTN_PRIMARY,
+                e -> mostrar(BASES)
         ), gbc);
 
-        return panel;
+        // Wrapper para centrar TODO el bloque
+        JPanel fondo = new PanelConFondo("/Presentacion/Recursos/fondo_buses.png");
+        fondo.add(grid);
+
+        return fondo;
     }
 
-    /**
-     * Crear un botón de menú con estilo
-     */
-    private JPanel crearBotonMenu(String titulo, String descripcion, String icono, 
-                                  Color colorFondo, java.awt.event.ActionListener action) {
+    // ===== TARJETA DEL MENÚ (estilo Socios) =====
+    JPanel crearBotonMenu(String titulo, String descripcion, String iconPath,
+                          Color iconColor, ActionListener action) {
+
         JPanel panel = new JPanel();
-        panel.setLayout(new BorderLayout(15, 0));
-        panel.setBackground(BG_PANEL);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(BG_CARD);
         panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(45, 80, 130), 2),
-            BorderFactory.createEmptyBorder(25, 25, 25, 25)
+                BorderFactory.createLineBorder(BORDER_CARD, 1),
+                BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
         panel.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Icono grande
-        JLabel lblIcono = new JLabel(icono);
-        lblIcono.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 48));
-        lblIcono.setForeground(colorFondo);
-        lblIcono.setHorizontalAlignment(SwingConstants.CENTER);
-        lblIcono.setPreferredSize(new Dimension(80, 80));
+        // Tamaño fijo (porte Socios)
+        Dimension size = new Dimension(280, 150);
+        panel.setPreferredSize(size);
+        panel.setMinimumSize(size);
+        panel.setMaximumSize(size);
 
-        // Textos
-        JPanel panelTextos = new JPanel();
-        panelTextos.setLayout(new BoxLayout(panelTextos, BoxLayout.Y_AXIS));
-        panelTextos.setOpaque(false);
+        // ICONO (tú controlas la ruta)
+        JLabel lblIcono = new JLabel();
+        lblIcono.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        URL iconURL = getClass().getResource(iconPath);
+        if (iconURL != null) {
+            ImageIcon icon = new ImageIcon(iconURL);
+            Image img = icon.getImage().getScaledInstance(48, 48, Image.SCALE_SMOOTH);
+            lblIcono.setIcon(new ImageIcon(img));
+        } else {
+            System.err.println("⚠ Icono no encontrado: " + iconPath);
+        }
 
         JLabel lblTitulo = new JLabel(titulo);
-        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTitulo.setForeground(Color.WHITE);
+        lblTitulo.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel lblDescripcion = new JLabel("<html>" + descripcion + "</html>");
-        lblDescripcion.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        JLabel lblDescripcion = new JLabel(
+                "<html><div style='text-align:center;'>" + descripcion + "</div></html>"
+        );
+        lblDescripcion.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblDescripcion.setForeground(TEXT_SECONDARY);
+        lblDescripcion.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        panelTextos.add(lblTitulo);
-        panelTextos.add(Box.createVerticalStrut(8));
-        panelTextos.add(lblDescripcion);
+        panel.add(Box.createVerticalGlue());
+        panel.add(lblIcono);
+        panel.add(Box.createVerticalStrut(12));
+        panel.add(lblTitulo);
+        panel.add(Box.createVerticalStrut(6));
+        panel.add(lblDescripcion);
+        panel.add(Box.createVerticalGlue());
 
-        panel.add(lblIcono, BorderLayout.WEST);
-        panel.add(panelTextos, BorderLayout.CENTER);
-
-        // Hacer clic en cualquier parte del panel
         panel.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
                 action.actionPerformed(null);
             }
-
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                panel.setBackground(new Color(25, 45, 75));
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                panel.setBackground(new Color(22, 42, 72));
             }
-
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                panel.setBackground(BG_PANEL);
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                panel.setBackground(BG_CARD);
             }
         });
 
         return panel;
     }
 
+    // ===== CAMBIAR VISTA =====
     /**
-     * Abrir un panel específico
+     * ✅ MEJORADO: Recarga socios al mostrar panel de registro
      */
-    private void abrirPanel(JPanel panel) {
-        // Crear nueva ventana para el panel
-        JFrame frame = new JFrame();
-        frame.setTitle("Módulo de Buses");
-        frame.setSize(1000, 700);
-        frame.setLocationRelativeTo(this);
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        frame.add(panel);
-        frame.setVisible(true);
+    public void mostrar(String vista) {
+        System.out.println("📍 Mostrando vista: " + vista);
+        
+        // ✅ Si va a mostrar el panel de registrar, recargar socios
+        if (REGISTRAR.equals(vista) && panelRegistrarBus != null) {
+            System.out.println("🔄 Iniciando recarga de socios...");
+            panelRegistrarBus.recargarSocios();
+        }
+        
+        cardLayout.show(panelContenido, vista);
+        System.out.println("✅ Vista mostrada: " + vista);
+    }
+
+    class PanelConFondo extends JPanel {
+        private Image imagen;
+
+        public PanelConFondo(String ruta) {
+            imagen = new ImageIcon(getClass().getResource(ruta)).getImage();
+            setLayout(new GridBagLayout()); // para centrar contenido
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            g.drawImage(imagen, 0, 0, getWidth(), getHeight(), this);
+        }
     }
 }

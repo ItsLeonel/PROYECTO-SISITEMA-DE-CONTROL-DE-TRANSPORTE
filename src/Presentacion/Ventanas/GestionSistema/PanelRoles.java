@@ -220,7 +220,7 @@ private void estilizarHeader(JTable tabla) {
         gs.crearRol(nombre, activo);
 
         JOptionPane.showMessageDialog(this,
-                "Nombre de rol actualizado correctamente.");
+                "Rol creado correctamente.");
 
         cargarTabla();
 
