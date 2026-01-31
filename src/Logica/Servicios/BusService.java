@@ -84,6 +84,18 @@ public class BusService {
                         "No se puede registrar el bus: debe especificar una base operativa.");
             }
 
+            // ✅ Validar fecha de ingreso
+            if (bus.getFechaIngreso() == null || bus.getFechaIngreso().trim().isEmpty()) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: debe especificar la fecha de ingreso.");
+            }
+            
+            // Validar formato de fecha dd/MM/yyyy
+            if (!bus.getFechaIngreso().matches("\\d{2}/\\d{2}/\\d{4}")) {
+                return new ResultadoOperacion(false,
+                        "No se puede registrar el bus: la fecha debe tener el formato dd/MM/yyyy.");
+            }
+
             busDAO.insertar(bus);
 
             // ✅ CASO 1 - Registro exitoso
@@ -218,24 +230,24 @@ public class BusService {
     }
 
     /**
-     * ✅ VALIDACIÓN ESTRICTA DE PLACA SEGÚN ANEXO D
+     * ✅ VALIDACIÓN ESTRICTA DE PLACA SEGÚN ANEXO D (CON GUION)
      * 
-     * Formato EXACTO: P + 2 letras MAYÚSCULAS + 4 dígitos
-     * Regex: ^P[A-Z]{2}[0-9]{4}$
+     * Formato EXACTO: P + 2 letras MAYÚSCULAS + GUION + 4 dígitos
+     * Regex: ^P[A-Z]{2}-[0-9]{4}$
      * 
      * ✅ VÁLIDOS:
-     * - PAB1234
-     * - PBC0001
-     * - PZZ9999
+     * - PAB-1234
+     * - PBC-0001
+     * - PZZ-9999
      * 
      * ❌ INVÁLIDOS:
-     * - Pab1234 (minúsculas)
-     * - PAB-1234 (guion)
-     * - PAB 1234 (espacio)
-     * - ABC1234 (no empieza con P)
-     * - PAB123 (muy corta)
-     * - PAB12345 (muy larga)
-     * - PAB12A4 (letra en zona numérica)
+     * - Pab-1234 (minúsculas)
+     * - PAB1234 (sin guion)
+     * - PAB -1234 (espacio antes/después del guion)
+     * - ABC-1234 (no empieza con P)
+     * - PAB-123 (muy corta - 3 dígitos)
+     * - PAB-12345 (muy larga - 5 dígitos)
+     * - PAB-12A4 (letra en zona numérica)
      */
     private boolean validarPlaca(String placa) {
         if (placa == null || placa.trim().isEmpty()) {
@@ -245,13 +257,14 @@ public class BusService {
         // ✅ NO convertir a mayúsculas - debe venir en mayúsculas
         String placaOriginal = placa.trim();
         
-        // ✅ Regex EXACTO según Anexo D
+        // ✅ Regex CON GUION obligatorio
         // - ^ = inicio de cadena
         // - P = letra P mayúscula obligatoria
         // - [A-Z]{2} = exactamente 2 letras mayúsculas
+        // - - = guion obligatorio
         // - [0-9]{4} = exactamente 4 dígitos
         // - $ = fin de cadena
-        return placaOriginal.matches("^P[A-Z]{2}[0-9]{4}$");
+        return placaOriginal.matches("^P[A-Z]{2}-[0-9]{4}$");
     }
 
     /**
