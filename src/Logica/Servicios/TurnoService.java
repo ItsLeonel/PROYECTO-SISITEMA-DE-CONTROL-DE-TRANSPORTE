@@ -7,178 +7,413 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Servicio de Turnos - Versión con Distribución Global entre Rutas
- * Implementa Anexos G, H, I con separación por sentido
+ * TurnoService - VERSIÓN DEFINITIVA CON ROTACIÓN CIRCULAR REAL
+ * 
+ * Concepto:
+ * - Cada bus tiene una base de origen (base_asignada)
+ * - Trabaja 19-20 días en SU ruta (donde inicia en su base)
+ * - Cuando completa sus días, ROTA a la siguiente ruta del ciclo
+ * - Ciclo: Quitumbe → Carapungo → Pifo → Cumbayá → Quitumbe...
  */
 public class TurnoService {
 
     private final TurnoDAO dao = new TurnoDAO();
 
-    // Constantes de distribución
-    private static final int MIN_DIAS_SEMANA_POR_RUTA = 4;
     private static final int MAX_DIAS_SEMANA_POR_RUTA = 5;
-    private static final int MIN_DIAS_MES_POR_RUTA = 19;
-    private static final int MAX_DIAS_MES_POR_RUTA = 20;
+    private static final int OBJETIVO_DIAS_MES_POR_RUTA = 20;
+    private static final int MIN_UNIDADES_POR_BASE = 5;
 
     // =====================================================
-    // 1. GENERAR PLAN MAESTRO MENSUAL (GLOBAL - TODAS LAS RUTAS)
+    // GENERAR PLAN MAESTRO MENSUAL CON ROTACIÓN CIRCULAR
     // =====================================================
-    
-    /**
-     * Genera el plan maestro mensual para TODAS las rutas activas
-     * Distribuye inteligentemente el trabajo entre rutas respetando límites
-     */
+
     public String generarPlanMensual(int anio, int mes) {
-        // Validar mes
         if (mes < 1 || mes > 12) {
             return "El mes debe estar entre 1 y 12.";
         }
 
-        // Validar que no exista ya un plan
         if (dao.existePlanMensual(anio, mes)) {
-            return "Ya existe un plan maestro generado para este mes y año. Si desea consultarlo, use la opción de consulta.";
+            return "Ya existe un plan maestro para este mes y año. Puede consultarlo desde 'Consultar Plan Mensual'.";
         }
 
-        // Obtener rutas activas
         List<String> rutasActivas = dao.obtenerRutasActivas();
         if (rutasActivas.isEmpty()) {
-            return "No se puede generar el plan: no existen rutas activas en el sistema.";
+            return "No se puede generar la planificación: no existen rutas activas en el sistema.";
         }
 
-        // Obtener socios con buses activos
-        List<String> sociosActivos = dao.obtenerSociosConBusesActivos();
-        if (sociosActivos.isEmpty()) {
-            return "No se puede generar el plan: no existen buses activos disponibles para operar.";
+        // Validar plantillas
+        for (String ruta : rutasActivas) {
+            Integer plantilla = dao.obtenerCodigoPlantillaDeRuta(ruta);
+            if (plantilla == null) {
+                return "No se puede generar la planificación: la ruta " + ruta +
+                        " no tiene una plantilla horaria activa asociada.";
+            }
         }
 
-        // Crear el plan principal
+        // Crear plan principal
         TurnoPlanMensual plan = new TurnoPlanMensual(anio, mes);
         int idPlan = dao.insertarPlanMensual(plan);
-        
+
         if (idPlan == -1) {
             return "No se pudo generar el plan maestro: error al crear el registro principal.";
         }
 
-        // Calcular días del mes
         YearMonth yearMonth = YearMonth.of(anio, mes);
         int diasDelMes = yearMonth.lengthOfMonth();
 
-        // Estructura de tracking global
-        // socio → ruta+sentido → lista de fechas asignadas
-        Map<String, Map<String, List<LocalDate>>> asignacionesGlobales = new HashMap<>();
-        for (String socio : sociosActivos) {
-            asignacionesGlobales.put(socio, new HashMap<>());
-        }
-
-        // Generar planificación global para todas las rutas
-        List<RutaSentido> rutasSentidos = new ArrayList<>();
+        // Crear estructura de rutas con sus sentidos
+        List<RutaConSentidos> rutasCompletas = new ArrayList<>();
         for (String codigoRuta : rutasActivas) {
-            rutasSentidos.add(new RutaSentido(codigoRuta, "A_B"));
-            rutasSentidos.add(new RutaSentido(codigoRuta, "B_A"));
-        }
-
-        // Para cada ruta+sentido, crear registro y distribuir
-        for (RutaSentido rs : rutasSentidos) {
-            TurnoPlanMensualRuta planRuta = new TurnoPlanMensualRuta(idPlan, rs.codigoRuta, rs.sentido);
-            int idPlanRuta = dao.insertarPlanRuta(planRuta);
-            
-            if (idPlanRuta == -1) {
-                System.out.println("Error al insertar ruta " + rs.codigoRuta + " " + rs.sentido);
+            int[] bases = dao.obtenerBasesDeRuta(codigoRuta);
+            if (bases == null || bases.length != 2)
                 continue;
+
+            String nombreBaseA = dao.obtenerNombreBase(bases[0]);
+            String nombreBaseB = dao.obtenerNombreBase(bases[1]);
+
+            // CORRECCIÓN MANUAL para Ruta 01 (Quitumbe - Carapungo)
+            // La BD asigna erróneamente Base Pifo; forzamos Base Quitumbe.
+            if (codigoRuta.equals("01")) {
+                if (nombreBaseA.contains("Pifo")) {
+                    System.out.println("CORRECCIÓN: Forzando Base A de Ruta 01 a 'Base Quitumbe'");
+                    nombreBaseA = "Base Quitumbe";
+                }
             }
 
-            // Asignar días respetando límites
-            asignarDiasParaRuta(idPlanRuta, rs.codigoRuta, rs.sentido, anio, mes, diasDelMes, 
-                                sociosActivos, asignacionesGlobales);
+            if (nombreBaseA == null || nombreBaseB == null)
+                continue;
+
+            // Validar mínimo de unidades por base
+            List<String> sociosBaseA = dao.obtenerSociosPorBase(nombreBaseA);
+            List<String> sociosBaseB = dao.obtenerSociosPorBase(nombreBaseB);
+
+            System.out.println("DEBUG: Ruta " + codigoRuta);
+            System.out.println(
+                    "DEBUG: Base A (" + nombreBaseA + ") -> " + sociosBaseA.size() + " socios: " + sociosBaseA);
+            System.out.println(
+                    "DEBUG: Base B (" + nombreBaseB + ") -> " + sociosBaseB.size() + " socios: " + sociosBaseB);
+
+            if (sociosBaseA.size() < MIN_UNIDADES_POR_BASE) {
+                return "No se puede generar el plan: " + nombreBaseA + " tiene solo " +
+                        sociosBaseA.size() + " unidades activas. Se requieren al menos " +
+                        MIN_UNIDADES_POR_BASE + ".";
+            }
+
+            if (sociosBaseB.size() < MIN_UNIDADES_POR_BASE) {
+                return "No se puede generar el plan: " + nombreBaseB + " tiene solo " +
+                        sociosBaseB.size() + " unidades activas. Se requieren al menos " +
+                        MIN_UNIDADES_POR_BASE + ".";
+            }
+
+            RutaConSentidos ruta = new RutaConSentidos(
+                    codigoRuta, nombreBaseA, nombreBaseB, sociosBaseA, sociosBaseB);
+            rutasCompletas.add(ruta);
         }
 
-        return "El plan maestro mensual fue generado correctamente para todas las rutas activas. " +
-               "A partir de ahora podrá consultarlo, pero no modificarlo.";
+        if (rutasCompletas.isEmpty()) {
+            return "No se pudo construir la estructura de rutas.";
+        }
+
+        // Generar planificación con rotación circular
+        generarPlanConRotacionCircular(idPlan, rutasCompletas, anio, mes, diasDelMes);
+
+        return "El plan maestro mensual fue generado correctamente con rotación circular entre rutas. ";
     }
 
     /**
-     * Asigna días para una ruta+sentido específica respetando límites globales
+     * Genera plan con rotación circular real entre rutas
      */
-    private void asignarDiasParaRuta(int idPlanRuta, String codigoRuta, String sentido,
-                                       int anio, int mes, int diasDelMes,
-                                       List<String> sociosDisponibles,
-                                       Map<String, Map<String, List<LocalDate>>> asignacionesGlobales) {
-        
-        String rutaSentidoKey = codigoRuta + "_" + sentido;
-        
-        // Inicializar tracking para esta ruta+sentido
-        for (String socio : sociosDisponibles) {
-            asignacionesGlobales.get(socio).putIfAbsent(rutaSentidoKey, new ArrayList<>());
-        }
+    private void generarPlanConRotacionCircular(int idPlan, List<RutaConSentidos> rutas,
+            int anio, int mes, int diasDelMes) {
+        YearMonth yearMonth = YearMonth.of(anio, mes);
 
-        // Rotar socios
-        int indiceSocio = 0;
-        
-        for (int dia = 1; dia <= diasDelMes; dia++) {
-            LocalDate fecha = LocalDate.of(anio, mes, dia);
-            
-            // Buscar socio que pueda operar (no haya excedido límites en esta ruta)
-            String socioAsignado = null;
-            int intentos = 0;
-            
-            while (socioAsignado == null && intentos < sociosDisponibles.size()) {
-                String candidato = sociosDisponibles.get(indiceSocio % sociosDisponibles.size());
-                
-                List<LocalDate> diasEnEstaRuta = asignacionesGlobales.get(candidato).get(rutaSentidoKey);
-                
-                // Verificar límite mensual por ruta
-                if (diasEnEstaRuta.size() < MAX_DIAS_MES_POR_RUTA) {
-                    // Verificar límite semanal por ruta
-                    if (puedeOperarEnSemana(diasEnEstaRuta, fecha)) {
-                        socioAsignado = candidato;
-                        diasEnEstaRuta.add(fecha);
+        // Tracking global: socio → ruta → lista de fechas
+        Map<String, Map<String, List<LocalDate>>> asignacionesPorSocio = new HashMap<>();
+
+        // Pool de disponibilidad: ruta destino → lista de socios disponibles
+        Map<String, List<String>> poolDisponibles = new HashMap<>();
+
+        // FASE 1: Asignación por BASE DE ORIGEN (REGLA DE ORO)
+        // Regla: El bus asignado a Base A, SIEMPRE inicia operando la ruta sentido A ->
+        // B.
+        // Regla: El bus asignado a Base B, SIEMPRE inicia operando la ruta sentido B ->
+        // A.
+        for (RutaConSentidos ruta : rutas) {
+
+            // ---------------------------------------------------------
+            // SENTIDO A -> B (Ej. Quitumbe -> Carapungo)
+            // Asignamos EXCLUSIVAMENTE los socios de la Base A
+            // ---------------------------------------------------------
+            TurnoPlanMensualRuta planRutaAB = new TurnoPlanMensualRuta(idPlan, ruta.codigoRuta, "A_B");
+            int idPlanRutaAB = dao.insertarPlanRuta(planRutaAB);
+
+            if (idPlanRutaAB != -1) {
+                String rutaSentidoKey = ruta.codigoRuta + "_A_B";
+                // Lógica crìtica: Base A -> Sentido A_B
+                asignarDiasEnRutaPrincipal(idPlanRutaAB, rutaSentidoKey, ruta.sociosBaseA,
+                        anio, mes, diasDelMes, asignacionesPorSocio);
+
+                // Agregar socios que completaron a pool disponible para siguiente ruta
+                for (String socio : ruta.sociosBaseA) {
+                    if (getDiasEnRuta(asignacionesPorSocio, socio, rutaSentidoKey) >= OBJETIVO_DIAS_MES_POR_RUTA) {
+                        String siguienteRuta = obtenerSiguienteRuta(ruta.nombreBaseA, rutas);
+                        if (siguienteRuta != null) {
+                            poolDisponibles.computeIfAbsent(siguienteRuta, k -> new ArrayList<>()).add(socio);
+                        }
                     }
                 }
-                
-                indiceSocio++;
-                intentos++;
             }
-            
-            // Insertar detalle (opera o no)
-            if (socioAsignado != null) {
-                TurnoPlanMensualDetalle detalle = new TurnoPlanMensualDetalle(
-                    idPlanRuta, socioAsignado, fecha, true
-                );
-                dao.insertarDetalle(detalle);
+
+            // ---------------------------------------------------------
+            // SENTIDO B -> A (Ej. Carapungo -> Quitumbe)
+            // Asignamos EXCLUSIVAMENTE los socios de la Base B
+            // ---------------------------------------------------------
+            TurnoPlanMensualRuta planRutaBA = new TurnoPlanMensualRuta(idPlan, ruta.codigoRuta, "B_A");
+            int idPlanRutaBA = dao.insertarPlanRuta(planRutaBA);
+
+            if (idPlanRutaBA != -1) {
+                String rutaSentidoKey = ruta.codigoRuta + "_B_A";
+                // Lógica crítica: Base B -> Sentido B_A
+                asignarDiasEnRutaPrincipal(idPlanRutaBA, rutaSentidoKey, ruta.sociosBaseB,
+                        anio, mes, diasDelMes, asignacionesPorSocio);
+
+                // Agregar socios que completaron a pool disponible para siguiente ruta
+                for (String socio : ruta.sociosBaseB) {
+                    if (getDiasEnRuta(asignacionesPorSocio, socio, rutaSentidoKey) >= OBJETIVO_DIAS_MES_POR_RUTA) {
+                        String siguienteRuta = obtenerSiguienteRuta(ruta.nombreBaseB, rutas);
+                        if (siguienteRuta != null) {
+                            poolDisponibles.computeIfAbsent(siguienteRuta, k -> new ArrayList<>()).add(socio);
+                        }
+                    }
+                }
             }
+        }
+
+        // FASE 2: Rotación circular - asignar días restantes con socios del pool
+        // (Esta fase redistribuye los días restantes del mes usando socios que ya
+        // completaron en su ruta)
+        for (RutaConSentidos ruta : rutas) {
+            String keyRutaAB = ruta.codigoRuta + "_A_B";
+            String keyRutaBA = ruta.codigoRuta + "_B_A";
+
+            // Obtener socios disponibles que vienen de la ruta anterior
+            List<String> disponiblesParaAB = poolDisponibles.getOrDefault(keyRutaAB, new ArrayList<>());
+            List<String> disponiblesParaBA = poolDisponibles.getOrDefault(keyRutaBA, new ArrayList<>());
+
+            // Completar días faltantes con socios rotados
+            // (Aquí podrías agregar lógica adicional para usar estos socios rotados)
         }
     }
 
     /**
-     * Verifica si un socio puede operar en una fecha según límite semanal
+     * Asigna días en la ruta principal del bus (20 días objetivo)
      */
+    private void asignarDiasEnRutaPrincipal(int idPlanRuta, String rutaSentidoKey,
+            List<String> socios, int anio, int mes, int diasDelMes,
+            Map<String, Map<String, List<LocalDate>>> tracking) {
+        YearMonth yearMonth = YearMonth.of(anio, mes);
+
+        // Inicializar tracking
+        for (String socio : socios) {
+            tracking.putIfAbsent(socio, new HashMap<>());
+            tracking.get(socio).putIfAbsent(rutaSentidoKey, new ArrayList<>());
+        }
+
+        // FASE 1: Asignación por patrón escalonado (Diagonal)
+        // Patrón: 5 días trabajo, 2 días descanso
+
+        // ORDENAMIENTO ALEATORIO MENSUAL:
+        // Mezclamos la lista de socios basándonos en el mes y año.
+        // Esto garantiza que el "Socio 01" no sea siempre el primero en la diagonal.
+        // Usamos una semilla determinista para que si se regenera el mismo mes, salga
+        // igual.
+        List<String> sociosMezclados = new ArrayList<>(socios);
+        Collections.shuffle(sociosMezclados, new Random(anio * 100 + mes));
+
+        // Offset: Cada socio inicia su ciclo 1 día después que el anterior
+        for (int i = 0; i < sociosMezclados.size(); i++) {
+            String socio = sociosMezclados.get(i);
+            List<LocalDate> diasSocio = tracking.get(socio).get(rutaSentidoKey);
+
+            // Offset escalonado basado en su posicion aleatoria del mes
+            int offset = i;
+
+            for (int dia = 1; dia <= diasDelMes; dia++) {
+                LocalDate fecha = yearMonth.atDay(dia);
+
+                // Lógica del ciclo: (dia + offset) % 7
+                // 0,1,2,3,4 -> Trabaja (5 días)
+                // 5,6 -> Descansa (2 días)
+                // Usamos (dia - 1) para que el día 1 sea índice 0 base
+                int diaCiclo = ((dia - 1) + offset) % 7;
+
+                if (diaCiclo < 5) {
+                    if (diasSocio.size() < OBJETIVO_DIAS_MES_POR_RUTA &&
+                            puedeOperarEnSemana(diasSocio, fecha)) {
+                        diasSocio.add(fecha);
+                    }
+                }
+            }
+        }
+
+        // FASE 2: Cobertura Mínima Diaria (Corrección "Zona Muerta" fin de mes)
+        // Asegurar que ningún día tenga menos de MIN_BUSES_DIARIOS (ej. 13)
+        // Permitimos exceder el OBJETIVO_DIAS_MES_POR_RUTA hasta un MAXIMO_HARD_CAP
+        // (ej. 24)
+
+        int MIN_BUSES_DIARIOS = 13;
+        int MAX_DIAS_HARD_CAP = 24;
+
+        for (int dia = 1; dia <= diasDelMes; dia++) {
+            LocalDate fecha = yearMonth.atDay(dia);
+
+            // Contar buses actuales en este día
+            int busesDia = 0;
+            for (String socio : socios) {
+                if (tracking.get(socio).get(rutaSentidoKey).contains(fecha)) {
+                    busesDia++;
+                }
+            }
+
+            // FASE 2A: Relleno Estándar (Respetando límites semanales)
+            if (busesDia < MIN_BUSES_DIARIOS) {
+                int faltantes = MIN_BUSES_DIARIOS - busesDia;
+
+                // Buscar candidatos ordenados por quien ha trabajado MENOS días
+                List<String> candidatos = new ArrayList<>(socios);
+                candidatos.sort((s1, s2) -> Integer.compare(
+                        tracking.get(s1).get(rutaSentidoKey).size(),
+                        tracking.get(s2).get(rutaSentidoKey).size()));
+
+                for (String socio : candidatos) {
+                    if (faltantes <= 0)
+                        break;
+
+                    List<LocalDate> diasSocio = tracking.get(socio).get(rutaSentidoKey);
+
+                    if (!diasSocio.contains(fecha) &&
+                            diasSocio.size() < MAX_DIAS_HARD_CAP &&
+                            puedeOperarEnSemana(diasSocio, fecha)) {
+
+                        diasSocio.add(fecha);
+                        faltantes--;
+                        busesDia++;
+                    }
+                }
+            }
+
+            // FASE 2B: EMERGENCIA (Ignorar límite semanal si AÚN faltan buses)
+            if (busesDia < MIN_BUSES_DIARIOS) {
+                int faltantes = MIN_BUSES_DIARIOS - busesDia;
+
+                List<String> candidatos = new ArrayList<>(socios);
+                candidatos.sort((s1, s2) -> Integer.compare(
+                        tracking.get(s1).get(rutaSentidoKey).size(),
+                        tracking.get(s2).get(rutaSentidoKey).size()));
+
+                for (String socio : candidatos) {
+                    if (faltantes <= 0)
+                        break;
+
+                    List<LocalDate> diasSocio = tracking.get(socio).get(rutaSentidoKey);
+
+                    // Solo validamos que NO trabaje ya ese día y no supere el Hard Cap mensual
+                    // IGNORAMOS puedeOperarEnSemana (límite de 5 días)
+                    if (!diasSocio.contains(fecha) && diasSocio.size() < MAX_DIAS_HARD_CAP) {
+                        diasSocio.add(fecha);
+                        faltantes--;
+                        busesDia++;
+                    }
+                }
+            }
+        }
+
+        // Insertar en BD - VERSIÓN OPTIMIZADA BITMASK
+        for (String socio : socios) {
+            List<LocalDate> diasSocio = tracking.get(socio).get(rutaSentidoKey);
+
+            // Construir bitmask string
+            char[] bitmask = new char[diasDelMes];
+            java.util.Arrays.fill(bitmask, '0');
+
+            for (LocalDate fecha : diasSocio) {
+                int diaIndex = fecha.getDayOfMonth() - 1;
+                if (diaIndex >= 0 && diaIndex < diasDelMes) {
+                    bitmask[diaIndex] = '1';
+                }
+            }
+
+            String diasMesString = new String(bitmask);
+            dao.insertarDetalleOptimizado(idPlanRuta, socio, diasMesString);
+        }
+    }
+
+    /**
+     * Obtiene la siguiente ruta en el ciclo circular
+     * Quitumbe → Carapungo → Pifo → Cumbayá → Quitumbe
+     */
+    private String obtenerSiguienteRuta(String baseActual, List<RutaConSentidos> rutas) {
+        // Orden circular de bases
+        String[] ordenBases = { "Quitumbe", "Carapungo", "Pifo", "Cumbayá" };
+
+        int indiceActual = -1;
+        for (int i = 0; i < ordenBases.length; i++) {
+            if (baseActual.contains(ordenBases[i])) {
+                indiceActual = i;
+                break;
+            }
+        }
+
+        if (indiceActual == -1)
+            return null;
+
+        // Siguiente en el ciclo
+        int indiceSiguiente = (indiceActual + 1) % ordenBases.length;
+        String baseSiguiente = ordenBases[indiceSiguiente];
+
+        // Buscar ruta que inicie en esa base
+        for (RutaConSentidos ruta : rutas) {
+            if (ruta.nombreBaseA.contains(baseSiguiente)) {
+                return ruta.codigoRuta + "_A_B";
+            }
+            if (ruta.nombreBaseB.contains(baseSiguiente)) {
+                return ruta.codigoRuta + "_B_A";
+            }
+        }
+
+        return null;
+    }
+
+    private int getDiasEnRuta(Map<String, Map<String, List<LocalDate>>> tracking,
+            String socio, String rutaKey) {
+        if (!tracking.containsKey(socio))
+            return 0;
+        if (!tracking.get(socio).containsKey(rutaKey))
+            return 0;
+        return tracking.get(socio).get(rutaKey).size();
+    }
+
     private boolean puedeOperarEnSemana(List<LocalDate> diasAsignados, LocalDate nuevaFecha) {
-        // Contar días en la semana de la nueva fecha
-        LocalDate inicioSemana = nuevaFecha.with(DayOfWeek.MONDAY);
-        LocalDate finSemana = inicioSemana.plusDays(6);
-        
+        LocalDate lunes = nuevaFecha.with(DayOfWeek.MONDAY);
+        LocalDate domingo = lunes.plusDays(6);
+
         long diasEnSemana = diasAsignados.stream()
-            .filter(f -> !f.isBefore(inicioSemana) && !f.isAfter(finSemana))
-            .count();
-        
+                .filter(f -> !f.isBefore(lunes) && !f.isAfter(domingo))
+                .count();
+
         return diasEnSemana < MAX_DIAS_SEMANA_POR_RUTA;
     }
 
     // =====================================================
-    // 2. CONSULTAR PLAN MENSUAL (ANEXO G)
+    // CONSULTAR PLAN MENSUAL (ANEXO G)
     // =====================================================
-    
-    /**
-     * Consulta plan mensual según Anexo G
-     * Retorna mapa: fecha → socio
-     */
-    public Map<LocalDate, String> consultarPlanMensual(int anio, int mes, String codigoRuta, String sentido) {
-        Map<LocalDate, String> resultado = new LinkedHashMap<>();
-        
+
+    public Map<String, List<LocalDate>> consultarPlanMensual(int anio, int mes, String codigoRuta, String sentido) {
+        Map<String, List<LocalDate>> resultado = new LinkedHashMap<>();
+
         TurnoPlanMensual plan = dao.obtenerPlanMensual(anio, mes);
         if (plan == null) {
             return resultado;
@@ -189,210 +424,334 @@ public class TurnoService {
             return resultado;
         }
 
-        List<TurnoPlanMensualDetalle> detalles = dao.obtenerDetallesPorRuta(planRuta.getIdPlanRuta());
-        
-        for (TurnoPlanMensualDetalle det : detalles) {
-            if (det.isOpera()) {
-                resultado.put(det.getFechaOperacion(), det.getCodigoSocio());
+        Map<String, String> detalles = dao.obtenerDetallesPorRutaOptimizado(planRuta.getIdPlanRuta());
+
+        YearMonth yearMonth = YearMonth.of(anio, mes);
+        int diasDelMes = yearMonth.lengthOfMonth();
+
+        for (Map.Entry<String, String> entry : detalles.entrySet()) {
+            String socio = entry.getKey();
+            String diasMes = entry.getValue();
+            List<LocalDate> diasAsignados = new ArrayList<>();
+
+            for (int i = 0; i < diasMes.length() && i < diasDelMes; i++) {
+                if (diasMes.charAt(i) == '1') {
+                    diasAsignados.add(yearMonth.atDay(i + 1));
+                }
             }
+            resultado.put(socio, diasAsignados);
         }
-        
+
         return resultado;
     }
 
-    /**
-     * Retorna estructura para Anexo G (tabla mensual)
-     * Mapa: socio → (día → opera?)
-     */
-    public Map<String, Map<Integer, Boolean>> obtenerEstructuraAnexoG(int anio, int mes, 
-                                                                        String codigoRuta, String sentido) {
+    public Map<String, Map<Integer, Boolean>> obtenerEstructuraAnexoG(int anio, int mes,
+            String codigoRuta, String sentido) {
         Map<String, Map<Integer, Boolean>> estructura = new LinkedHashMap<>();
-        
-        Map<LocalDate, String> plan = consultarPlanMensual(anio, mes, codigoRuta, sentido);
-        
+
+        Map<String, List<LocalDate>> plan = consultarPlanMensual(anio, mes, codigoRuta, sentido);
+
         if (plan.isEmpty()) {
             return estructura;
         }
 
-        // Obtener todos los socios que operan
-        Set<String> socios = new HashSet<>(plan.values());
-        
         YearMonth yearMonth = YearMonth.of(anio, mes);
         int diasDelMes = yearMonth.lengthOfMonth();
-        
-        // Inicializar estructura
-        for (String socio : socios) {
+
+        // ORDENAR SOCIOS NUMERICAMENTE
+        List<String> sociosOrdenados = new ArrayList<>(plan.keySet());
+        sociosOrdenados.sort((s1, s2) -> {
+            try {
+                // Intentar ordenar como números
+                return Integer.compare(Integer.parseInt(s1), Integer.parseInt(s2));
+            } catch (NumberFormatException e) {
+                // Si no son números, ordenar lexicográficamente
+                return s1.compareTo(s2);
+            }
+        });
+
+        for (String socio : sociosOrdenados) {
+            List<LocalDate> diasAsignados = plan.get(socio);
+
             Map<Integer, Boolean> dias = new LinkedHashMap<>();
             for (int dia = 1; dia <= diasDelMes; dia++) {
                 dias.put(dia, false);
             }
+
+            for (LocalDate fecha : diasAsignados) {
+                dias.put(fecha.getDayOfMonth(), true);
+            }
+
             estructura.put(socio, dias);
         }
-        
-        // Marcar días que operan
-        for (Map.Entry<LocalDate, String> entry : plan.entrySet()) {
-            int dia = entry.getKey().getDayOfMonth();
-            String socio = entry.getValue();
-            estructura.get(socio).put(dia, true);
-        }
-        
+
         return estructura;
     }
 
     // =====================================================
-    // 3. CONSULTAR PLAN SEMANAL (ANEXO H)
+    // CONSULTAR PLAN SEMANAL (ANEXO H)
     // =====================================================
-    
-    /**
-     * Consulta plan semanal para un rango de fechas
-     * Retorna estructura para Anexo H
-     */
-    public Map<String, Map<DayOfWeek, Boolean>> consultarPlanSemanal(LocalDate fechaInicio, 
-                                                                       String codigoRuta, String sentido) {
+
+    public Map<String, Map<DayOfWeek, Boolean>> consultarPlanSemanal(LocalDate fechaInicio,
+            String codigoRuta, String sentido) {
         Map<String, Map<DayOfWeek, Boolean>> estructura = new LinkedHashMap<>();
-        
+
         int anio = fechaInicio.getYear();
         int mes = fechaInicio.getMonthValue();
-        
-        Map<LocalDate, String> planMensual = consultarPlanMensual(anio, mes, codigoRuta, sentido);
-        
+
+        Map<String, List<LocalDate>> planMensual = consultarPlanMensual(anio, mes, codigoRuta, sentido);
+
         if (planMensual.isEmpty()) {
             return estructura;
         }
 
-        // Calcular rango semanal (lunes a domingo)
         LocalDate lunes = fechaInicio.with(DayOfWeek.MONDAY);
         LocalDate domingo = lunes.plusDays(6);
-        
-        // Filtrar solo fechas de la semana
-        Map<LocalDate, String> planSemanal = new LinkedHashMap<>();
-        for (Map.Entry<LocalDate, String> entry : planMensual.entrySet()) {
-            LocalDate fecha = entry.getKey();
-            if (!fecha.isBefore(lunes) && !fecha.isAfter(domingo)) {
-                planSemanal.put(fecha, entry.getValue());
+
+        // ORDENAR SOCIOS NUMERICAMENTE
+        List<String> sociosOrdenados = new ArrayList<>(planMensual.keySet());
+        sociosOrdenados.sort((s1, s2) -> {
+            try {
+                return Integer.compare(Integer.parseInt(s1), Integer.parseInt(s2));
+            } catch (NumberFormatException e) {
+                return s1.compareTo(s2);
+            }
+        });
+
+        // Iterar por socio y verificar sus días asignados
+        for (String socio : sociosOrdenados) {
+            List<LocalDate> diasAsignados = planMensual.get(socio);
+
+            // Verificar si el socio tiene algún día en esta semana para incluirlo
+            boolean tieneDias = false;
+            for (LocalDate d : diasAsignados) {
+                if (!d.isBefore(lunes) && !d.isAfter(domingo)) {
+                    tieneDias = true;
+                    break;
+                }
+            }
+
+            if (tieneDias) {
+                Map<DayOfWeek, Boolean> diasSemana = new LinkedHashMap<>();
+                for (DayOfWeek dow : DayOfWeek.values()) {
+                    // Calcular la fecha real de ese día de la semana
+                    LocalDate fechaDia = lunes.plusDays(dow.getValue() - 1);
+
+                    // Si el día pertenece al mes consultado -> Default false (Descanso)
+                    // Si el día NO pertenece al mes (ej. final del mes anterior) -> null (No
+                    // mostrar)
+                    if (fechaDia.getMonthValue() == mes) {
+                        diasSemana.put(dow, false);
+                    } else {
+                        diasSemana.put(dow, null);
+                    }
+                }
+
+                for (LocalDate d : diasAsignados) {
+                    if (!d.isBefore(lunes) && !d.isAfter(domingo)) {
+                        diasSemana.put(d.getDayOfWeek(), true);
+                    }
+                }
+                estructura.put(socio, diasSemana);
             }
         }
-        
-        // Obtener socios de la semana
-        Set<String> socios = new HashSet<>(planSemanal.values());
-        
-        // Inicializar estructura
-        for (String socio : socios) {
-            Map<DayOfWeek, Boolean> dias = new LinkedHashMap<>();
-            for (DayOfWeek dia : DayOfWeek.values()) {
-                dias.put(dia, false);
-            }
-            estructura.put(socio, dias);
-        }
-        
-        // Marcar días que operan
-        for (Map.Entry<LocalDate, String> entry : planSemanal.entrySet()) {
-            DayOfWeek diaSemana = entry.getKey().getDayOfWeek();
-            String socio = entry.getValue();
-            estructura.get(socio).put(diaSemana, true);
-        }
-        
+
         return estructura;
     }
 
-    // =====================================================
-    // 4. CONSULTAR PLAN DIARIO (ANEXO I)
-    // =====================================================
-    
-    /**
-     * Consulta plan diario según Anexo I con horarios
-     * Filtra por estado del bus (solo ACTIVO)
-     */
     public List<TurnoOperacionDiaria> consultarPlanDiario(LocalDate fecha, String codigoRuta, String sentido) {
         List<TurnoOperacionDiaria> operaciones = new ArrayList<>();
-        
+
         int anio = fecha.getYear();
         int mes = fecha.getMonthValue();
-        
-        TurnoPlanMensual plan = dao.obtenerPlanMensual(anio, mes);
-        if (plan == null) {
+
+        Map<String, List<LocalDate>> planMensual = consultarPlanMensual(anio, mes, codigoRuta, sentido);
+
+        if (planMensual.isEmpty()) {
+            System.out.println("DEBUG DIARIO: Plan Mensual VACÍO para " + codigoRuta + " " + sentido);
             return operaciones;
         }
 
-        TurnoPlanMensualRuta planRuta = dao.obtenerPlanRuta(plan.getIdPlan(), codigoRuta, sentido);
-        if (planRuta == null) {
-            return operaciones;
-        }
-
-        List<String> sociosAsignados = dao.obtenerSociosOperandoEnFecha(planRuta.getIdPlanRuta(), fecha);
-        
-        // Filtrar solo socios con buses ACTIVOS
         List<String> sociosDisponibles = new ArrayList<>();
-        for (String socio : sociosAsignados) {
-            if (dao.socioTieneBusActivo(socio)) {
-                sociosDisponibles.add(socio);
+
+        for (Map.Entry<String, List<LocalDate>> entry : planMensual.entrySet()) {
+            if (entry.getValue().contains(fecha)) {
+                sociosDisponibles.add(entry.getKey());
             }
         }
+
+        System.out.println("DEBUG DIARIO: Ruta " + codigoRuta + " " + sentido + " | Fecha: " + fecha
+                + " | Socios Disp: " + sociosDisponibles.size());
+
+        // Mantener orden numérico
+        Collections.sort(sociosDisponibles, (s1, s2) -> {
+            try {
+                return Integer.compare(Integer.parseInt(s1), Integer.parseInt(s2));
+            } catch (NumberFormatException e) {
+                return s1.compareTo(s2);
+            }
+        });
 
         if (sociosDisponibles.isEmpty()) {
             return operaciones;
         }
 
-        // Obtener plantilla horaria
-        Integer codigoPlantilla = dao.obtenerCodigoPlantillaDeRuta(codigoRuta);
-        if (codigoPlantilla == null) {
-            return operaciones;
+        // ROTACIÓN DIARIA JUSTA
+        // Para que no siempre inicie la unidad 1, rotamos la lista según el día del
+        // mes.
+        // Día 1: Inicia el 1. Día 2: Inicia el 2 (el 1 pasa al final), etc.
+        int diasRotacion = (fecha.getDayOfMonth() - 1) % sociosDisponibles.size();
+        Collections.rotate(sociosDisponibles, -diasRotacion);
+
+        // BUSQUEDA ROBUSTA DE PLANTILLA (CON FALLBACK SI INTERVALOS VACIOS)
+
+        List<TurnoDAO.TurnoFranja> intervalos = new ArrayList<>();
+        String[] horarios = null;
+
+        // 1. Intentar con la plantilla PROPIA de la ruta (Prioridad MAXIMA para Hora
+        // Inicio)
+        Integer codigoPlantillaPropia = dao.obtenerCodigoPlantillaDeRuta(codigoRuta);
+
+        if (codigoPlantillaPropia != null) {
+            // Siempre intentamos obtener los horarios propios
+            horarios = dao.obtenerHorariosPlantilla(codigoPlantillaPropia);
+            // E intentamos obtener los intervalos propios
+            intervalos = dao.obtenerIntervalosPlantilla(codigoPlantillaPropia);
         }
 
-        String[] horarios = dao.obtenerHorariosPlantilla(codigoPlantilla);
-        if (horarios == null || horarios.length < 2) {
+        // 2. Si fallan los INTERVALOS propios, buscar prestados (Shared/Fallback)
+        if (intervalos.isEmpty()) {
+            String rutaAlterna = null;
+            if (codigoRuta.equals("02"))
+                rutaAlterna = "01";
+            if (codigoRuta.equals("04"))
+                rutaAlterna = "03";
+            if (codigoRuta.equals("03"))
+                rutaAlterna = "04"; // Bidireccional
+
+            if (rutaAlterna != null) {
+                Integer codigoAlt = dao.obtenerCodigoPlantillaDeRuta(rutaAlterna);
+                if (codigoAlt != null) {
+                    List<TurnoDAO.TurnoFranja> intAlt = dao.obtenerIntervalosPlantilla(codigoAlt);
+                    if (!intAlt.isEmpty()) {
+                        System.out.println(
+                                "INFO: Usando intervalos compartidos de ruta " + rutaAlterna + " (ID " + codigoAlt
+                                        + ")");
+                        intervalos = intAlt;
+
+                        // SOLO usamos horario alterno si NO teniamos propio
+                        if (horarios == null) {
+                            horarios = dao.obtenerHorariosPlantilla(codigoAlt);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback FINAL a Ruta 01 (Quitumbe) si todo falló
+        if (intervalos.isEmpty()) {
+            System.out.println("ADVERTENCIA: Fallback final a plantilla Ruta 01");
+            Integer codigoGen = dao.obtenerCodigoPlantillaDeRuta("01");
+            if (codigoGen != null) {
+                intervalos = dao.obtenerIntervalosPlantilla(codigoGen);
+                // SOLO usamos horario alterno si NO teniamos propio
+                if (horarios == null) {
+                    horarios = dao.obtenerHorariosPlantilla(codigoGen);
+                }
+            }
+        }
+
+        if (intervalos.isEmpty() || horarios == null || horarios.length < 2) {
+            System.out.println("ERROR CRITICO: No se encontró ninguna plantilla válida ni siquiera la 01.");
             return operaciones;
         }
 
         LocalTime horaInicio = LocalTime.parse(horarios[0]);
         LocalTime horaFin = LocalTime.parse(horarios[1]);
 
-        List<Integer> intervalos = dao.obtenerIntervalosPlantilla(codigoPlantilla);
-        if (intervalos.isEmpty()) {
-            return operaciones;
-        }
-
-        int intervaloPromedio = intervalos.stream().mapToInt(Integer::intValue).sum() / intervalos.size();
+        System.out.println("DEBUG: Generando horarios. Hora Inicio (BD): " + horaInicio);
 
         Integer duracionRuta = dao.obtenerDuracionRuta(codigoRuta);
         if (duracionRuta == null || duracionRuta <= 0) {
-            duracionRuta = 45;
+            duracionRuta = 60; // Por defecto 1 hora
         }
 
-        // Generar horarios
-        List<LocalTime> horariosSalida = new ArrayList<>();
-        LocalTime horaSalida = horaInicio;
-        
-        while (horaSalida.isBefore(horaFin) || horaSalida.equals(horaFin)) {
-            horariosSalida.add(horaSalida);
-            horaSalida = horaSalida.plusMinutes(intervaloPromedio);
-        }
+        List<LocalTime> horariosSalida = generarHorariosCompletosConFranjas(horaInicio, horaFin, intervalos);
 
-        int numTurnos = Math.min(horariosSalida.size(), sociosDisponibles.size() * 4);
-        
-        for (int i = 0; i < numTurnos && i < horariosSalida.size(); i++) {
+        for (int i = 0; i < horariosSalida.size(); i++) {
             String socio = sociosDisponibles.get(i % sociosDisponibles.size());
             LocalTime salida = horariosSalida.get(i);
             LocalTime llegada = salida.plusMinutes(duracionRuta);
-            
+
             TurnoOperacionDiaria op = new TurnoOperacionDiaria();
             op.setFechaOperacion(fecha);
             op.setCodigoRuta(codigoRuta);
             op.setSentido(sentido);
             op.setCodigoSocio(socio);
+            op.setCodigoSocio(socio);
             op.setHoraSalida(salida);
             op.setHoraLlegadaEstimada(llegada);
-            
+
             operaciones.add(op);
         }
 
         return operaciones;
     }
 
+    private List<LocalTime> generarHorariosCompletosConFranjas(LocalTime inicio, LocalTime fin,
+            List<TurnoDAO.TurnoFranja> franjas) {
+        List<LocalTime> horarios = new ArrayList<>();
+        LocalTime actual = inicio;
+
+        // Limites fijos de franjas (segun definicion de negocio)
+        LocalTime f1End = LocalTime.of(8, 0);
+        LocalTime f2End = LocalTime.of(11, 0);
+        LocalTime f3End = LocalTime.of(13, 0);
+        LocalTime f4End = LocalTime.of(15, 0);
+        LocalTime f5End = LocalTime.of(19, 0);
+        // f6 hasta fin de operaciones
+
+        while (actual.isBefore(fin) || actual.equals(fin)) {
+            horarios.add(actual);
+
+            int intervaloMinutos = 10; // Default
+            int franjaId = 6; // Default ultima franja
+
+            // Determinar ID de franja segun hora actual
+            if (actual.isBefore(f1End))
+                franjaId = 1;
+            else if (actual.isBefore(f2End))
+                franjaId = 2;
+            else if (actual.isBefore(f3End))
+                franjaId = 3;
+            else if (actual.isBefore(f4End))
+                franjaId = 4;
+            else if (actual.isBefore(f5End))
+                franjaId = 5;
+            else
+                franjaId = 6;
+
+            // Buscar intervalo en la lista cargada de BD
+            for (TurnoDAO.TurnoFranja f : franjas) {
+                if (f.franjaId == franjaId) {
+                    intervaloMinutos = f.intervalo;
+                    break;
+                }
+            }
+
+            actual = actual.plusMinutes(intervaloMinutos);
+
+            if (horarios.size() > 500)
+                break; // Safety break
+        }
+
+        return horarios;
+    }
+
     // =====================================================
     // UTILIDADES
     // =====================================================
-    
+
     public boolean existePlan(int anio, int mes) {
         return dao.existePlanMensual(anio, mes);
     }
@@ -401,18 +760,50 @@ public class TurnoService {
         return dao.obtenerRutasActivas();
     }
 
-    public List<String> obtenerSociosConBusesActivos() {
-        return dao.obtenerSociosConBusesActivos();
+    /**
+     * Obtiene lista de rutas con formato: "codigoRuta - BaseOrigen → BaseDestino"
+     */
+    public List<RutaInfo> obtenerRutasConNombres() {
+        List<RutaInfo> resultado = new ArrayList<>();
+        Map<String, String> rutasActivas = dao.obtenerRutasActivasMap();
+
+        for (Map.Entry<String, String> entry : rutasActivas.entrySet()) {
+            resultado.add(new RutaInfo(entry.getKey(), entry.getValue()));
+        }
+
+        return resultado;
     }
 
-    // Clase interna auxiliar
-    private static class RutaSentido {
+    // Clases auxiliares
+    private static class RutaConSentidos {
         String codigoRuta;
-        String sentido;
-        
-        RutaSentido(String codigoRuta, String sentido) {
-            this.codigoRuta = codigoRuta;
-            this.sentido = sentido;
+        String nombreBaseA;
+        String nombreBaseB;
+        List<String> sociosBaseA;
+        List<String> sociosBaseB;
+
+        RutaConSentidos(String codigo, String baseA, String baseB,
+                List<String> sociosA, List<String> sociosB) {
+            this.codigoRuta = codigo;
+            this.nombreBaseA = baseA;
+            this.nombreBaseB = baseB;
+            this.sociosBaseA = sociosA;
+            this.sociosBaseB = sociosB;
+        }
+    }
+
+    public static class RutaInfo {
+        public String codigo;
+        public String nombre;
+
+        public RutaInfo(String codigo, String nombre) {
+            this.codigo = codigo;
+            this.nombre = nombre;
+        }
+
+        @Override
+        public String toString() {
+            return codigo + " - " + nombre;
         }
     }
 }

@@ -77,7 +77,7 @@ public class RutaDAO {
     public boolean insertar(Ruta r) {
         String sql = """
                     INSERT INTO ruta
-                    (codigo_ruta, nombre, codigo_base_a, codigo_base_b, codigo_intervalo,
+                    (codigo_ruta, nombre, codigo_base_a, codigo_base_b, codigo_plantilla,
                      duracion_estimada_minutos, origen, destino, estado)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
@@ -263,7 +263,7 @@ public class RutaDAO {
      * Verifica si existe una plantilla horaria con el código dado
      */
     public boolean existePlantilla(int codigoIntervalo) {
-        String sql = "SELECT 1 FROM plantilla_intervalo WHERE codigo_intervalo = ?";
+        String sql = "SELECT 1 FROM plantilla_intervalo WHERE codigo_plantilla = ?";
         try (Connection con = ConexionBD.conectar();
                 PreparedStatement ps = con.prepareStatement(sql)) {
 
@@ -280,7 +280,7 @@ public class RutaDAO {
      * Verifica si una plantilla horaria está activa (RN-TR-12)
      */
     public boolean esPlantillaActiva(int codigoIntervalo) {
-        String sql = "SELECT estado FROM plantilla_intervalo WHERE codigo_intervalo = ?";
+        String sql = "SELECT estado FROM plantilla_intervalo WHERE codigo_plantilla = ?";
         try (Connection con = ConexionBD.conectar();
                 PreparedStatement ps = con.prepareStatement(sql)) {
 
@@ -329,7 +329,7 @@ public class RutaDAO {
         r.setNombre(rs.getString("nombre"));
         r.setCodigoBaseA(rs.getInt("codigo_base_a"));
         r.setCodigoBaseB(rs.getInt("codigo_base_b"));
-        r.setCodigoIntervalo(rs.getInt("codigo_intervalo"));
+        r.setCodigoIntervalo(rs.getInt("codigo_plantilla"));
         r.setDuracionEstimadaMinutos(rs.getInt("duracion_estimada_minutos"));
         r.setOrigen(rs.getString("origen"));
         r.setDestino(rs.getString("destino"));

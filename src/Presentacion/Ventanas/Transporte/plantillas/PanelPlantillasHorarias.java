@@ -987,8 +987,19 @@ public class PanelPlantillasHorarias extends JPanel {
 
         PlantillaHoraria p = resultado.getPlantilla();
         txtNombreActualizar.setText(p.getNombre());
-        txtHoraInicioActualizar.setText(p.getHoraInicioOperaciones());
-        txtHoraFinActualizar.setText(p.getHoraFinOperaciones());
+
+        // Fix: Mostrar solo HH:MM para evitar problemas de validación
+        String hInicio = p.getHoraInicioOperaciones();
+        if (hInicio != null && hInicio.length() > 5) {
+            hInicio = hInicio.substring(0, 5);
+        }
+        txtHoraInicioActualizar.setText(hInicio);
+
+        String hFin = p.getHoraFinOperaciones();
+        if (hFin != null && hFin.length() > 5) {
+            hFin = hFin.substring(0, 5);
+        }
+        txtHoraFinActualizar.setText(hFin);
         txtRutaActualizar.setText(p.getCodigoRuta());
 
         List<PlantillaHorariaFranja> franjas = resultado.getFranjas();

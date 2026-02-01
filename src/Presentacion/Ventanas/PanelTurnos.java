@@ -10,6 +10,8 @@ import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.net.URL;
+import java.io.File;
+import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -276,8 +278,6 @@ public class PanelTurnos extends JPanel {
         JLabel lblNota = new JLabel(
                 "<html><b style='color:#FFD700'>IMPORTANTE:</b> El plan se generará para <u>TODAS las rutas activas</u>.<br>"
                         +
-                        "• Distribución automática equitativa entre rutas<br>" +
-                        "• Límites: 4-5 días/semana por ruta, 19-20 días/mes por ruta<br>" +
                         "• Solo rutas ACTIVAS con plantillas ACTIVAS<br>" +
                         "• Solo buses en estado ACTIVO</html>");
         lblNota.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -360,10 +360,13 @@ public class PanelTurnos extends JPanel {
         filtros.add(txtAnio);
 
         filtros.add(labelChico("Ruta:"));
-        JTextField txtRuta = new JTextField(6);
-        txtRuta.setPreferredSize(new Dimension(80, 35));
-        estilizarCampo(txtRuta);
-        filtros.add(txtRuta);
+
+        // Cargar rutas activas
+        List<TurnoService.RutaInfo> rutasDisp = turnoService.obtenerRutasConNombres();
+        JComboBox<TurnoService.RutaInfo> cbRuta = new JComboBox<>(rutasDisp.toArray(new TurnoService.RutaInfo[0]));
+        cbRuta.setPreferredSize(new Dimension(250, 35));
+        estilizarCombo(cbRuta);
+        filtros.add(cbRuta);
 
         JButton btnConsultar = new JButton("Consultar");
         btnConsultar.setBackground(BTN_BLUE);
@@ -391,20 +394,21 @@ public class PanelTurnos extends JPanel {
             try {
                 int mes = Integer.parseInt((String) cbMes.getSelectedItem());
                 int anio = Integer.parseInt(txtAnio.getText().trim());
-                String ruta = txtRuta.getText().trim();
 
-                if (ruta.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Debe ingresar un código de ruta.", "Advertencia",
+                TurnoService.RutaInfo rutaSeleccionada = (TurnoService.RutaInfo) cbRuta.getSelectedItem();
+                if (rutaSeleccionada == null) {
+                    JOptionPane.showMessageDialog(this, "Debe seleccionar una ruta.", "Advertencia",
                             JOptionPane.WARNING_MESSAGE);
                     return;
                 }
+                String ruta = rutaSeleccionada.codigo;
 
                 Map<String, Map<Integer, Boolean>> tablaAB = turnoService.obtenerEstructuraAnexoG(anio, mes, ruta,
                         "A_B");
 
                 if (tablaAB.isEmpty()) {
                     JOptionPane.showMessageDialog(this,
-                            "No se encontró un plan maestro para el período seleccionado.",
+                            "No existen planes para la fecha ingresada",
                             "Resultado", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
@@ -439,7 +443,7 @@ public class PanelTurnos extends JPanel {
 
         btnExportar.addActionListener(e -> {
             if (tablaRef[0] != null) {
-                exportarTablaCSV(tablaRef[0], "PlanMensual_AnexoG");
+                exportarTablaExcel(tablaRef[0], "PlanMensual_AnexoG");
             } else {
                 JOptionPane.showMessageDialog(this,
                         "Primero realice una consulta para visualizar la tabla a exportar.");
@@ -540,16 +544,37 @@ public class PanelTurnos extends JPanel {
         filtros.setOpaque(false);
 
         filtros.add(labelChico("Fecha (inicio semana):"));
-        JTextField txtFecha = new JTextField("2026-02-02", 12);
-        txtFecha.setPreferredSize(new Dimension(150, 35));
-        estilizarCampo(txtFecha);
-        filtros.add(txtFecha);
+        // REEMPLAZO: Selector visual
+        JTextField txtFechaSemanal = new JTextField(LocalDate.now().toString());
+        txtFechaSemanal.setPreferredSize(new Dimension(100, 35));
+        txtFechaSemanal.setEditable(false);
+        txtFechaSemanal.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+        JButton btnFechaSem = new JButton("📅");
+        btnFechaSem.setPreferredSize(new Dimension(50, 35));
+        btnFechaSem.setFocusPainted(false);
+        btnFechaSem.setBackground(new Color(230, 230, 230));
+        btnFechaSem.addActionListener(evt -> {
+            LocalDate current = LocalDate.parse(txtFechaSemanal.getText());
+            LocalDate selected = DialogSelectorFecha.mostrar(SwingUtilities.getWindowAncestor(this), current);
+            if (selected != null) {
+                txtFechaSemanal.setText(selected.toString());
+            }
+        });
+
+        JPanel panelFechaSem = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        panelFechaSem.setOpaque(false);
+        panelFechaSem.add(txtFechaSemanal);
+        panelFechaSem.add(btnFechaSem);
+        filtros.add(panelFechaSem);
 
         filtros.add(labelChico("Ruta:"));
-        JTextField txtRuta = new JTextField(6);
-        txtRuta.setPreferredSize(new Dimension(80, 35));
-        estilizarCampo(txtRuta);
-        filtros.add(txtRuta);
+
+        List<TurnoService.RutaInfo> rutasDisp = turnoService.obtenerRutasConNombres();
+        JComboBox<TurnoService.RutaInfo> cbRuta = new JComboBox<>(rutasDisp.toArray(new TurnoService.RutaInfo[0]));
+        cbRuta.setPreferredSize(new Dimension(250, 35));
+        estilizarCombo(cbRuta);
+        filtros.add(cbRuta);
 
         JButton btnConsultar = new JButton("Consultar");
         btnConsultar.setBackground(BTN_BLUE);
@@ -568,20 +593,22 @@ public class PanelTurnos extends JPanel {
             tablaRef[0] = null;
 
             try {
-                LocalDate fecha = LocalDate.parse(txtFecha.getText().trim());
-                String ruta = txtRuta.getText().trim();
+                // MODIFICACIÓN: Leer de JTextfield en lugar de Spinner
+                LocalDate fecha = LocalDate.parse(txtFechaSemanal.getText());
 
-                if (ruta.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Debe ingresar un código de ruta.", "Advertencia",
+                TurnoService.RutaInfo rutaSeleccionada = (TurnoService.RutaInfo) cbRuta.getSelectedItem();
+                if (rutaSeleccionada == null) {
+                    JOptionPane.showMessageDialog(this, "Debe seleccionar una ruta.", "Advertencia",
                             JOptionPane.WARNING_MESSAGE);
                     return;
                 }
+                String ruta = rutaSeleccionada.codigo;
 
                 Map<String, Map<DayOfWeek, Boolean>> semanalAB = turnoService.consultarPlanSemanal(fecha, ruta, "A_B");
 
                 if (semanalAB.isEmpty()) {
                     JOptionPane.showMessageDialog(this,
-                            "No se encontró un plan maestro para el período seleccionado.",
+                            "No existen planes para la fecha ingresada",
                             "Resultado", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
@@ -611,7 +638,7 @@ public class PanelTurnos extends JPanel {
         btnExportar.setPreferredSize(new Dimension(130, 35));
         btnExportar.addActionListener(e -> {
             if (tablaRef[0] != null) {
-                exportarTablaCSV(tablaRef[0], "PlanSemanal_AnexoH");
+                exportarTablaExcel(tablaRef[0], "PlanSemanal_AnexoH");
             } else {
                 JOptionPane.showMessageDialog(this,
                         "Primero realice una consulta para visualizar la tabla a exportar.");
@@ -653,7 +680,12 @@ public class PanelTurnos extends JPanel {
 
             DayOfWeek[] dias = DayOfWeek.values();
             for (int i = 0; i < 7; i++) {
-                fila[i + 1] = entry.getValue().get(dias[i]) ? "✔" : "✖";
+                Boolean valor = entry.getValue().get(dias[i]);
+                if (valor == null) {
+                    fila[i + 1] = ""; // Fuera del mes
+                } else {
+                    fila[i + 1] = valor ? "✔" : "✖";
+                }
             }
 
             modelo.addRow(fila);
@@ -694,10 +726,10 @@ public class PanelTurnos extends JPanel {
         topPanel.add(btnVolver);
         topPanel.add(Box.createVerticalStrut(15));
 
-        JLabel lblTitulo = new JLabel("Tabla Operacional Diaria (con horarios)");
+        JLabel lblTitulo = new JLabel("Tabla Operacional Diaria");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblTitulo.setForeground(Color.WHITE);
-        lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lblTitulo.setAlignmentX(Component.CENTER_ALIGNMENT);
         topPanel.add(lblTitulo);
         topPanel.add(Box.createVerticalStrut(20));
 
@@ -705,16 +737,41 @@ public class PanelTurnos extends JPanel {
         filtros.setOpaque(false);
 
         filtros.add(labelChico("Fecha:"));
-        JTextField txtFecha = new JTextField("2026-02-15", 12);
-        txtFecha.setPreferredSize(new Dimension(150, 35));
-        estilizarCampo(txtFecha);
-        filtros.add(txtFecha);
+        filtros.add(labelChico("Fecha:"));
+
+        // REEMPLAZO DE JSPINNER POR SELECTOR VISUAL
+        JTextField txtFechaDiario = new JTextField();
+        txtFechaDiario.setPreferredSize(new Dimension(100, 35));
+        txtFechaDiario.setEditable(false);
+        txtFechaDiario.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtFechaDiario.setText(LocalDate.now().toString());
+
+        JButton btnFecha = new JButton("📅");
+        btnFecha.setPreferredSize(new Dimension(50, 35));
+        btnFecha.setFocusPainted(false);
+        btnFecha.setBackground(new Color(230, 230, 230));
+        btnFecha.addActionListener(evt -> {
+            LocalDate current = LocalDate.parse(txtFechaDiario.getText());
+            LocalDate selected = DialogSelectorFecha.mostrar(SwingUtilities.getWindowAncestor(this), current);
+            if (selected != null) {
+                txtFechaDiario.setText(selected.toString());
+            }
+        });
+
+        JPanel panelFecha = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        panelFecha.setOpaque(false);
+        panelFecha.add(txtFechaDiario);
+        panelFecha.add(btnFecha);
+
+        filtros.add(panelFecha);
 
         filtros.add(labelChico("Ruta:"));
-        JTextField txtRuta = new JTextField(6);
-        txtRuta.setPreferredSize(new Dimension(80, 35));
-        estilizarCampo(txtRuta);
-        filtros.add(txtRuta);
+
+        List<TurnoService.RutaInfo> rutasDisp = turnoService.obtenerRutasConNombres();
+        JComboBox<TurnoService.RutaInfo> cbRuta = new JComboBox<>(rutasDisp.toArray(new TurnoService.RutaInfo[0]));
+        cbRuta.setPreferredSize(new Dimension(250, 35));
+        estilizarCombo(cbRuta);
+        filtros.add(cbRuta);
 
         JButton btnConsultar = new JButton("Consultar");
         btnConsultar.setBackground(new Color(70, 140, 255));
@@ -733,21 +790,23 @@ public class PanelTurnos extends JPanel {
             tablaRef[0] = null;
 
             try {
-                LocalDate fecha = LocalDate.parse(txtFecha.getText().trim());
-                String ruta = txtRuta.getText().trim();
+                // MODIFICACIÓN: Leer de JTextField
+                LocalDate fecha = LocalDate.parse(txtFechaDiario.getText());
 
-                if (ruta.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Debe ingresar un código de ruta.", "Advertencia",
+                TurnoService.RutaInfo rutaSeleccionada = (TurnoService.RutaInfo) cbRuta.getSelectedItem();
+                if (rutaSeleccionada == null) {
+                    JOptionPane.showMessageDialog(this, "Debe seleccionar una ruta.", "Advertencia",
                             JOptionPane.WARNING_MESSAGE);
                     return;
                 }
+                String ruta = rutaSeleccionada.codigo;
 
                 List<TurnoOperacionDiaria> diarioAB = turnoService.consultarPlanDiario(fecha, ruta, "A_B");
                 List<TurnoOperacionDiaria> diarioBA = turnoService.consultarPlanDiario(fecha, ruta, "B_A");
 
                 if (diarioAB.isEmpty() && diarioBA.isEmpty()) {
                     JOptionPane.showMessageDialog(this,
-                            "Para la fecha seleccionada no existen unidades disponibles para operar esta ruta.",
+                            "No existen planes para la fecha ingresada",
                             "Resultado", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
@@ -789,7 +848,7 @@ public class PanelTurnos extends JPanel {
         btnExportar.setPreferredSize(new Dimension(130, 35));
         btnExportar.addActionListener(e -> {
             if (tablaRef[0] != null) {
-                exportarTablaCSV(tablaRef[0], "PlanDiario_AnexoI");
+                exportarTablaExcel(tablaRef[0], "PlanDiario_AnexoI");
             } else {
                 JOptionPane.showMessageDialog(this,
                         "Primero realice una consulta para visualizar la tabla a exportar.");
@@ -979,7 +1038,7 @@ public class PanelTurnos extends JPanel {
     // UTILIDADES DE ESTILO
     // =====================================================
 
-    private void estilizarCombo(JComboBox<String> cb) {
+    private void estilizarCombo(JComboBox<?> cb) {
         cb.setBackground(BG_PANEL);
         cb.setForeground(Color.WHITE);
         cb.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -1091,6 +1150,41 @@ public class PanelTurnos extends JPanel {
             return new ImageIcon(img);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private void exportarTablaExcel(JTable tabla, String nombreBase) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Guardar como Excel");
+        fileChooser
+                .setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos Excel (*.xlsx)", "xlsx"));
+        fileChooser.setSelectedFile(new File(nombreBase + ".xlsx"));
+
+        int userSelection = fileChooser.showSaveDialog(this);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            if (!file.getName().toLowerCase().endsWith(".xlsx")) {
+                file = new File(file.getAbsolutePath() + ".xlsx");
+            }
+
+            try {
+                Logica.Servicios.ExportarService exporter = new Logica.Servicios.ExportarService();
+                exporter.exportarExcel(tabla, "Planificación", file);
+
+                JOptionPane.showMessageDialog(this,
+                        "Archivo exportado correctamente:\n" + file.getAbsolutePath(),
+                        "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this,
+                        "Error al guardar el archivo: " + ex.getMessage(),
+                        "Error de E/S", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this,
+                        "Error inesperado al exportar: " + ex.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
         }
     }
 }
