@@ -6,22 +6,16 @@ import Logica.Servicios.BusService;
 import Logica.Servicios.ResultadoOperacion;
 
 import javax.swing.*;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.List;
 
 /**
  * Panel para registrar un nuevo bus
  * Requisito: ru1+2+3v1.1
- * Integrado con Módulo de Socios
+ * ✅ CORREGIDO: Controles interactivos y formato de placa CON guion
  */
 public class PanelRegistrarBus extends JPanel {
 
@@ -30,14 +24,15 @@ public class PanelRegistrarBus extends JPanel {
 
     // Campos del formulario
     private JTextField txtPlaca;
-    private JComboBox<SocioDisponible> cmbSocio;
-    private JLabel lblCantidadSocios;  // ✅ Variable de instancia
+    private JComboBox<String> cmbSocio;  // ✅ SOLO ID del socio
+    private JLabel lblCantidadSocios;
     private JTextField txtMarca;
     private JTextField txtModelo;
-    private JTextField txtAnio;          // ✅ Ahora es TextField
-    private JTextField txtCapacidad;     // ✅ Ahora es TextField
-    private JTextField txtBase;
-    private JTextField txtEstado;        // ✅ Ahora es TextField
+    private JSpinner spinnerAnio;         // ✅ Spinner para año
+    private JSpinner spinnerCapacidad;    // ✅ Spinner para capacidad
+    private JComboBox<String> cmbBase;    // ✅ ComboBox para base
+    private JComboBox<String> cmbEstado;  // ✅ ComboBox para estado
+    private JFormattedTextField txtFechaIngreso;  // ✅ Fecha de ingreso
 
     // Colores del tema
     private static final Color BG_MAIN = new Color(11, 22, 38);
@@ -45,6 +40,12 @@ public class PanelRegistrarBus extends JPanel {
     private static final Color PRIMARY_COLOR = new Color(33, 90, 190);
     private static final Color SUCCESS_COLOR = new Color(40, 167, 69);
     private static final Color TEXT_SECONDARY = new Color(190, 200, 215);
+    
+    // ✅ Bases disponibles (hardcoded según requisitos)
+    private static final String[] BASES_DISPONIBLES = {"Base Norte", "Base Sur"};
+    
+    // ✅ Estados disponibles
+    private static final String[] ESTADOS_DISPONIBLES = {"ACTIVO", "INACTIVO", "MANTENIMIENTO"};
 
     public PanelRegistrarBus(PanelBuses parent) {
         this.parent = parent;
@@ -55,11 +56,22 @@ public class PanelRegistrarBus extends JPanel {
 
         add(construirFormulario(), BorderLayout.CENTER);
 
-        JButton btnVolver = new JButton("⬅ Volver");
+        JButton btnVolver = new JButton(" Volver");
+        btnVolver.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnVolver.setForeground(Color.WHITE);
+        btnVolver.setBackground(PRIMARY_COLOR);
+        btnVolver.setBorderPainted(false);
+        btnVolver.setFocusPainted(false);
+        btnVolver.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnVolver.setPreferredSize(new Dimension(120, 35));
         btnVolver.addActionListener(e -> parent.mostrar(PanelBuses.MENU));
-        add(btnVolver, BorderLayout.SOUTH);
+        
+        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        panelSur.setOpaque(false);
+        panelSur.add(btnVolver);
+        add(panelSur, BorderLayout.SOUTH);
 
-        // ✅ Recargar socios cada vez que el panel se hace visible
+        // Recargar socios cuando sea visible
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
@@ -83,7 +95,7 @@ public class PanelRegistrarBus extends JPanel {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Título del formulario
+        // Título
         JLabel lblTitulo = new JLabel("Registrar Nuevo Bus");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblTitulo.setForeground(Color.WHITE);
@@ -96,7 +108,7 @@ public class PanelRegistrarBus extends JPanel {
         gbc.gridwidth = 1;
         gbc.insets = new Insets(10, 10, 10, 10);
 
-        // Fila 1: Placa
+        // ===== FILA 1: PLACA =====
         gbc.gridx = 0;
         gbc.gridy = 1;
         panel.add(crearLabel("Placa:"), gbc);
@@ -115,10 +127,10 @@ public class PanelRegistrarBus extends JPanel {
 
         gbc.gridwidth = 1;
 
-        // Fila 2: Código del Socio Propietario (✅ con contador)
+        // ===== FILA 2: CÓDIGO SOCIO (SOLO ID) =====
         gbc.gridx = 0;
         gbc.gridy = 2;
-        panel.add(crearLabel("Código del Socio Propietario:"), gbc);
+        panel.add(crearLabel("Código Socio:"), gbc);
 
         gbc.gridx = 1;
         gbc.gridwidth = 3;
@@ -129,11 +141,10 @@ public class PanelRegistrarBus extends JPanel {
         cmbSocio.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         cmbSocio.setBackground(new Color(21, 44, 82));
         cmbSocio.setForeground(Color.WHITE);
-        cmbSocio.setPreferredSize(new Dimension(300, 35));
+        cmbSocio.setPreferredSize(new Dimension(150, 35));
         cargarSociosDisponibles();
         panelSocio.add(cmbSocio);
         
-        // ✅ Crear label como variable de instancia
         lblCantidadSocios = new JLabel();
         lblCantidadSocios.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lblCantidadSocios.setForeground(TEXT_SECONDARY);
@@ -141,10 +152,9 @@ public class PanelRegistrarBus extends JPanel {
         panelSocio.add(lblCantidadSocios);
         
         panel.add(panelSocio, gbc);
-
         gbc.gridwidth = 1;
 
-        // Fila 3: Marca y Modelo
+        // ===== FILA 3: MARCA Y MODELO =====
         gbc.gridx = 0;
         gbc.gridy = 3;
         panel.add(crearLabel("Marca:"), gbc);
@@ -160,90 +170,107 @@ public class PanelRegistrarBus extends JPanel {
         txtModelo = crearTextField(15);
         panel.add(txtModelo, gbc);
 
-        // Ayuda para marca y modelo
+        // Ayuda
         gbc.gridx = 1;
         gbc.gridy = 4;
         gbc.gridwidth = 3;
-        JLabel lblAyudaMarcaModelo = new JLabel("Marca: máx 15 caracteres alfabéticos | Modelo: máx 15 caracteres alfanuméricos");
+        JLabel lblAyudaMarcaModelo = new JLabel("Marca: máx 15 alfabéticos | Modelo: máx 15 alfanuméricos");
         lblAyudaMarcaModelo.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lblAyudaMarcaModelo.setForeground(TEXT_SECONDARY);
         panel.add(lblAyudaMarcaModelo, gbc);
-
         gbc.gridwidth = 1;
 
-        // Fila 5: Año y Capacidad (✅ AHORA SON CAMPOS DE TEXTO)
+        // ===== FILA 5: AÑO (SPINNER) Y CAPACIDAD (SPINNER) =====
         gbc.gridx = 0;
         gbc.gridy = 5;
-        panel.add(crearLabel("Año de Fabricación:"), gbc);
+        panel.add(crearLabel("Año Fabricación:"), gbc);
 
         gbc.gridx = 1;
-        txtAnio = crearTextField(8);
         int anioActual = Calendar.getInstance().get(Calendar.YEAR);
-        txtAnio.setText(String.valueOf(anioActual));
-        JPanel panelAnio = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        panelAnio.setOpaque(false);
-        panelAnio.add(txtAnio);
-        JLabel lblAyudaAnio = new JLabel("(4 dígitos, ≤ " + anioActual + ", antigüedad ≤ 10 años)");
-        lblAyudaAnio.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblAyudaAnio.setForeground(TEXT_SECONDARY);
-        panelAnio.add(lblAyudaAnio);
-        panel.add(panelAnio, gbc);
+        int anioMinimo = anioActual - 10;
+        SpinnerNumberModel modeloAnio = new SpinnerNumberModel(anioActual, anioMinimo, anioActual, 1);
+        spinnerAnio = new JSpinner(modeloAnio);
+        spinnerAnio.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        ((JSpinner.DefaultEditor) spinnerAnio.getEditor()).getTextField().setBackground(new Color(21, 44, 82));
+        ((JSpinner.DefaultEditor) spinnerAnio.getEditor()).getTextField().setForeground(Color.WHITE);
+        ((JSpinner.DefaultEditor) spinnerAnio.getEditor()).getTextField().setCaretColor(Color.WHITE);
+        spinnerAnio.setPreferredSize(new Dimension(120, 35));
+        panel.add(spinnerAnio, gbc);
 
         gbc.gridx = 2;
-        panel.add(crearLabel("Capacidad Pasajeros:"), gbc);
+        panel.add(crearLabel("Capacidad:"), gbc);
 
         gbc.gridx = 3;
-        txtCapacidad = crearTextField(8);
-        txtCapacidad.setText("40");
-        JPanel panelCapacidad = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        panelCapacidad.setOpaque(false);
-        panelCapacidad.add(txtCapacidad);
-        JLabel lblAyudaCapacidad = new JLabel("(entero > 0)");
-        lblAyudaCapacidad.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblAyudaCapacidad.setForeground(TEXT_SECONDARY);
-        panelCapacidad.add(lblAyudaCapacidad);
-        panel.add(panelCapacidad, gbc);
+        SpinnerNumberModel modeloCapacidad = new SpinnerNumberModel(40, 1, 100, 1);
+        spinnerCapacidad = new JSpinner(modeloCapacidad);
+        spinnerCapacidad.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        ((JSpinner.DefaultEditor) spinnerCapacidad.getEditor()).getTextField().setBackground(new Color(21, 44, 82));
+        ((JSpinner.DefaultEditor) spinnerCapacidad.getEditor()).getTextField().setForeground(Color.WHITE);
+        ((JSpinner.DefaultEditor) spinnerCapacidad.getEditor()).getTextField().setCaretColor(Color.WHITE);
+        spinnerCapacidad.setPreferredSize(new Dimension(120, 35));
+        panel.add(spinnerCapacidad, gbc);
 
-        // Fila 6: Base Asignada
+        // ===== FILA 6: BASE (COMBOBOX) Y ESTADO (COMBOBOX) =====
         gbc.gridx = 0;
         gbc.gridy = 6;
         panel.add(crearLabel("Base Asignada:"), gbc);
 
         gbc.gridx = 1;
-        gbc.gridwidth = 3;
-        txtBase = crearTextField(30);
-        JPanel panelBase = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        panelBase.setOpaque(false);
-        panelBase.add(txtBase);
-        JLabel lblAyudaBase = new JLabel("(Nombre de la base operativa)");
-        lblAyudaBase.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblAyudaBase.setForeground(TEXT_SECONDARY);
-        panelBase.add(lblAyudaBase);
-        panel.add(panelBase, gbc);
+        cmbBase = new JComboBox<>(BASES_DISPONIBLES);
+        cmbBase.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        cmbBase.setBackground(new Color(21, 44, 82));
+        cmbBase.setForeground(Color.WHITE);
+        cmbBase.setPreferredSize(new Dimension(180, 35));
+        panel.add(cmbBase, gbc);
 
-        gbc.gridwidth = 1;
+        gbc.gridx = 2;
+        panel.add(crearLabel("Estado:"), gbc);
 
-        // Fila 7: Estado (✅ AHORA ES CAMPO DE TEXTO)
+        gbc.gridx = 3;
+        cmbEstado = new JComboBox<>(ESTADOS_DISPONIBLES);
+        cmbEstado.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        cmbEstado.setBackground(new Color(21, 44, 82));
+        cmbEstado.setForeground(Color.WHITE);
+        cmbEstado.setPreferredSize(new Dimension(180, 35));
+        panel.add(cmbEstado, gbc);
+
+        // ===== FILA 7: FECHA DE INGRESO =====
         gbc.gridx = 0;
         gbc.gridy = 7;
-        panel.add(crearLabel("Estado:"), gbc);
+        panel.add(crearLabel("Fecha Ingreso:"), gbc);
 
         gbc.gridx = 1;
         gbc.gridwidth = 3;
-        txtEstado = crearTextField(15);
-        txtEstado.setText("ACTIVO");
-        JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        panelEstado.setOpaque(false);
-        panelEstado.add(txtEstado);
-        JLabel lblAyudaEstado = new JLabel("(ACTIVO, INACTIVO o MANTENIMIENTO)");
-        lblAyudaEstado.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblAyudaEstado.setForeground(TEXT_SECONDARY);
-        panelEstado.add(lblAyudaEstado);
-        panel.add(panelEstado, gbc);
-
+        
+        // Fecha actual por defecto
+        LocalDate hoy = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        
+        txtFechaIngreso = new JFormattedTextField();
+        txtFechaIngreso.setText(hoy.format(formatter));
+        txtFechaIngreso.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtFechaIngreso.setBackground(new Color(21, 44, 82));
+        txtFechaIngreso.setForeground(Color.WHITE);
+        txtFechaIngreso.setCaretColor(Color.WHITE);
+        txtFechaIngreso.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(45, 80, 130), 1),
+                BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+        txtFechaIngreso.setPreferredSize(new Dimension(150, 35));
+        
+        JPanel panelFecha = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        panelFecha.setOpaque(false);
+        panelFecha.add(txtFechaIngreso);
+        
+        JLabel lblAyudaFecha = new JLabel("(dd/MM/yyyy)");
+        lblAyudaFecha.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblAyudaFecha.setForeground(TEXT_SECONDARY);
+        panelFecha.add(lblAyudaFecha);
+        
+        panel.add(panelFecha, gbc);
         gbc.gridwidth = 1;
 
-        // Separador
+        // ===== SEPARADOR =====
         gbc.gridx = 0;
         gbc.gridy = 8;
         gbc.gridwidth = 4;
@@ -252,7 +279,7 @@ public class PanelRegistrarBus extends JPanel {
         sep.setForeground(new Color(45, 80, 130));
         panel.add(sep, gbc);
 
-        // Botones
+        // ===== BOTONES =====
         gbc.gridy = 9;
         gbc.insets = new Insets(10, 10, 10, 10);
         panel.add(construirPanelBotones(), gbc);
@@ -264,7 +291,7 @@ public class PanelRegistrarBus extends JPanel {
     }
 
     /**
-     * Cargar socios disponibles (sin bus asignado) en el combo
+     * ✅ Cargar SOLO IDs de socios disponibles
      */
     private void cargarSociosDisponibles() {
         ResultadoOperacion resultado = busService.obtenerSociosDisponibles();
@@ -275,44 +302,28 @@ public class PanelRegistrarBus extends JPanel {
 
             cmbSocio.removeAllItems();
             for (SocioDisponible socio : socios) {
-                cmbSocio.addItem(socio);
+                // ✅ SOLO agregar el código/ID del socio
+                cmbSocio.addItem(socio.getCodigoSocio());
             }
             
-            // ✅ Actualizar contador después de cargar
             actualizarContadorSocios();
         } else {
-            JOptionPane.showMessageDialog(this,
-                    resultado.getMensaje(),
-                    "Advertencia",
-                    JOptionPane.WARNING_MESSAGE);
             cmbSocio.removeAllItems();
             actualizarContadorSocios();
         }
     }
 
-    /**
-     * ✅ Actualizar el contador de socios disponibles
-     */
     private void actualizarContadorSocios() {
         if (lblCantidadSocios != null && cmbSocio != null) {
             int cantidad = cmbSocio.getItemCount();
-            lblCantidadSocios.setText("(" + cantidad + " socios disponibles)");
+            lblCantidadSocios.setText("(" + cantidad + " disponibles)");
         }
     }
 
-    /**
-     * ✅ MÉTODO PÚBLICO: Recargar socios disponibles
-     * Llamar este método cuando se registre un nuevo socio
-     */
     public void recargarSocios() {
-        System.out.println("🔄 Recargando socios disponibles...");
         cargarSociosDisponibles();
-        System.out.println("✅ Socios recargados: " + cmbSocio.getItemCount());
     }
 
-    /**
-     * Crear label con estilo
-     */
     private JLabel crearLabel(String texto) {
         JLabel label = new JLabel(texto);
         label.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -320,9 +331,6 @@ public class PanelRegistrarBus extends JPanel {
         return label;
     }
 
-    /**
-     * Crear campo de texto con estilo
-     */
     private JTextField crearTextField(int columnas) {
         JTextField field = new JTextField(columnas);
         field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -336,14 +344,10 @@ public class PanelRegistrarBus extends JPanel {
         return field;
     }
 
-    /**
-     * Construir panel de botones
-     */
     private JPanel construirPanelBotones() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         panel.setOpaque(false);
 
-        // Botón Cancelar
         JButton btnCancelar = new JButton("CANCELAR");
         btnCancelar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnCancelar.setForeground(Color.WHITE);
@@ -354,7 +358,6 @@ public class PanelRegistrarBus extends JPanel {
         btnCancelar.setPreferredSize(new Dimension(150, 40));
         btnCancelar.addActionListener(e -> limpiarFormulario());
 
-        // Botón Guardar
         JButton btnGuardar = new JButton("REGISTRAR BUS");
         btnGuardar.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnGuardar.setForeground(Color.WHITE);
@@ -372,26 +375,22 @@ public class PanelRegistrarBus extends JPanel {
     }
 
     /**
-     * Registrar bus - Requisito ru1+2+3v1.1
-     * ✅ CUMPLE CON TODOS LOS REQUISITOS Y MENSAJES EXACTOS
+     * ✅ Registrar bus con TODAS las nuevas validaciones
      */
     private void registrarBus() {
-        // ===== OBTENER DATOS =====
-        // ✅ NO convertir placa a mayúsculas - debe venir en mayúsculas
-        String placa = txtPlaca.getText().trim();  // SIN .toUpperCase()
-        SocioDisponible socioSeleccionado = (SocioDisponible) cmbSocio.getSelectedItem();
+        // ✅ Placa CON guion obligatorio
+        String placa = txtPlaca.getText().trim();
+        String codigoSocio = (String) cmbSocio.getSelectedItem();
         String marca = txtMarca.getText().trim().toUpperCase();
         String modelo = txtModelo.getText().trim().toUpperCase();
-        String anioTexto = txtAnio.getText().trim();
-        String capacidadTexto = txtCapacidad.getText().trim();
-        String base = txtBase.getText().trim();
-        String estado = txtEstado.getText().trim().toUpperCase();
+        int anio = (Integer) spinnerAnio.getValue();
+        int capacidad = (Integer) spinnerCapacidad.getValue();
+        String base = (String) cmbBase.getSelectedItem();
+        String estado = (String) cmbEstado.getSelectedItem();
+        String fechaIngreso = txtFechaIngreso.getText().trim();
 
-        // ===== VALIDACIONES SEGÚN REQUISITOS =====
-        
-        // Validar que no estén vacíos
-        if (placa.isEmpty() || marca.isEmpty() || modelo.isEmpty() || 
-            anioTexto.isEmpty() || capacidadTexto.isEmpty() || base.isEmpty() || estado.isEmpty()) {
+        // Validar campos vacíos
+        if (placa.isEmpty() || marca.isEmpty() || modelo.isEmpty() || fechaIngreso.isEmpty()) {
             JOptionPane.showMessageDialog(this,
                     "Todos los campos son obligatorios.",
                     "Datos incompletos",
@@ -400,148 +399,104 @@ public class PanelRegistrarBus extends JPanel {
         }
 
         // Validar socio seleccionado
-        if (socioSeleccionado == null) {
+        if (codigoSocio == null) {
             JOptionPane.showMessageDialog(this,
-                    "Debe seleccionar un socio propietario.\n" +
-                    "Si no aparecen socios, debe registrar uno primero en el Módulo de Socios.",
+                    "Debe seleccionar un socio propietario.",
                     "Datos incompletos",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Validar año de fabricación
-        int anio;
-        try {
-            anio = Integer.parseInt(anioTexto);
-        } catch (NumberFormatException e) {
+        // ✅ Validar formato de placa CON guion: PPP-1234
+        if (!placa.matches("^P[A-Z]{2}-[0-9]{4}$")) {
             JOptionPane.showMessageDialog(this,
-                    "El año de fabricación debe ser un número de 4 dígitos.",
-                    "Año inválido",
+                    "La placa debe tener el formato PPP-1234 (ej: PBD-7777)\n" +
+                    "- Debe empezar con P\n" +
+                    "- Seguido de 2 letras mayúsculas\n" +
+                    "- Luego un guion (-)\n" +
+                    "- Terminar con 4 dígitos",
+                    "Placa inválida",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Verificar que el año tenga 4 dígitos
-        if (anioTexto.length() != 4) {
-            JOptionPane.showMessageDialog(this,
-                    "El año de fabricación debe ser un número de 4 dígitos.",
-                    "Año inválido",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // Verificar que el año sea menor o igual al año actual
-        int anioActual = Calendar.getInstance().get(Calendar.YEAR);
-        if (anio > anioActual) {
-            JOptionPane.showMessageDialog(this,
-                    "El año de fabricación no puede ser mayor al año actual (" + anioActual + ").",
-                    "Año inválido",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // Verificar que la antigüedad no supere los 10 años
-        if ((anioActual - anio) > 10) {
-            JOptionPane.showMessageDialog(this,
-                    "El año de fabricación no puede tener una antigüedad mayor a 10 años.",
-                    "Año inválido",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // Validar capacidad de pasajeros
-        int capacidad;
-        try {
-            capacidad = Integer.parseInt(capacidadTexto);
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this,
-                    "La capacidad de pasajeros debe ser un número entero.",
-                    "Capacidad inválida",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // Verificar que la capacidad sea mayor que cero
-        if (capacidad <= 0) {
-            JOptionPane.showMessageDialog(this,
-                    "La capacidad de pasajeros debe ser un valor mayor que cero.",
-                    "Capacidad inválida",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        // Validar marca (máx 15 caracteres alfabéticos)
+        // Validar marca
         if (marca.length() > 15 || !marca.matches("[A-ZÁÉÍÓÚÑ ]+")) {
             JOptionPane.showMessageDialog(this,
-                    "La marca debe contener solo caracteres alfabéticos y tener máximo 15 caracteres.",
+                    "La marca debe contener solo letras y máximo 15 caracteres.",
                     "Marca inválida",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Validar modelo (máx 15 caracteres alfanuméricos)
+        // Validar modelo
         if (modelo.length() > 15 || !modelo.matches("[A-Z0-9 ]+")) {
             JOptionPane.showMessageDialog(this,
-                    "El modelo debe contener solo caracteres alfanuméricos y tener máximo 15 caracteres.",
+                    "El modelo debe ser alfanumérico y máximo 15 caracteres.",
                     "Modelo inválido",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Validar estado
-        if (!estado.equals("ACTIVO") && !estado.equals("INACTIVO") && !estado.equals("MANTENIMIENTO")) {
+        // Validar fecha
+        if (!fechaIngreso.matches("\\d{2}/\\d{2}/\\d{4}")) {
             JOptionPane.showMessageDialog(this,
-                    "El estado debe ser: ACTIVO, INACTIVO o MANTENIMIENTO.",
-                    "Estado inválido",
+                    "La fecha debe tener el formato dd/MM/yyyy",
+                    "Fecha inválida",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // ===== CREAR OBJETO BUS =====
+        // Crear bus
         Bus bus = new Bus();
         bus.setPlaca(placa);
-        bus.setCodigoSocioFk(socioSeleccionado.getCodigoSocio());
+        bus.setCodigoSocioFk(codigoSocio);
         bus.setMarca(marca);
         bus.setModelo(modelo);
         bus.setAnioFabricacion(anio);
         bus.setCapacidadPasajeros(capacidad);
         bus.setBaseAsignada(base);
         bus.setEstado(estado);
+        bus.setFechaIngreso(fechaIngreso);  // ✅ Nuevo atributo
 
-        // ===== REGISTRAR MEDIANTE EL SERVICIO =====
+        // Registrar
         ResultadoOperacion resultado = busService.registrarBus(bus);
 
-        // ===== MOSTRAR MENSAJE SEGÚN EL RESULTADO =====
-        // Los mensajes exactos están en el servicio según requisitos
         if (resultado.isExito()) {
             JOptionPane.showMessageDialog(this,
-                    resultado.getMensaje(), // "Bus registrado correctamente."
+                    resultado.getMensaje(),
                     "Registro exitoso",
                     JOptionPane.INFORMATION_MESSAGE);
             limpiarFormulario();
-            cargarSociosDisponibles(); // Recargar combo
+            cargarSociosDisponibles();
         } else {
             JOptionPane.showMessageDialog(this,
-                    resultado.getMensaje(), // Mensajes de error según requisitos
+                    resultado.getMensaje(),
                     "Error en el registro",
                     JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    /**
-     * Limpiar formulario
-     */
     private void limpiarFormulario() {
         txtPlaca.setText("");
         txtMarca.setText("");
         txtModelo.setText("");
-        txtAnio.setText(String.valueOf(Calendar.getInstance().get(Calendar.YEAR)));
-        txtCapacidad.setText("40");
-        txtBase.setText("");
-        txtEstado.setText("ACTIVO");
+        
+        int anioActual = Calendar.getInstance().get(Calendar.YEAR);
+        spinnerAnio.setValue(anioActual);
+        spinnerCapacidad.setValue(40);
+        
+        cmbBase.setSelectedIndex(0);
+        cmbEstado.setSelectedIndex(0);
+        
+        LocalDate hoy = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        txtFechaIngreso.setText(hoy.format(formatter));
+        
         if (cmbSocio.getItemCount() > 0) {
             cmbSocio.setSelectedIndex(0);
         }
+        
         txtPlaca.requestFocus();
     }
 }

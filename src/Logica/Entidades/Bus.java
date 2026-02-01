@@ -141,4 +141,13 @@ public class Bus {
                 ", estado='" + estado + '\'' +
                 '}';
     }
+    private String fechaIngreso;
+
+public String getFechaIngreso() {
+    return fechaIngreso;
+}
+
+public void setFechaIngreso(String fechaIngreso) {
+    this.fechaIngreso = fechaIngreso;
+}
 }
