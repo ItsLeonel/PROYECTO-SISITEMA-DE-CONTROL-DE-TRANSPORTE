@@ -4,38 +4,47 @@ import Logica.DAO.BaseDAO;
 import Logica.Entidades.Base;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class BaseService {
 
     private final BaseDAO baseDAO = new BaseDAO();
 
     public String registrarBase(Base b) {
+        StringBuilder errores = new StringBuilder();
 
-        if (b == null)
-            return "No se pudo registrar la base operativa: el código de la base no cumple el formato requerido.";
+        if (b == null) {
+            return "No se pudieron obtener los datos de la base.";
+        }
 
-       // String codigoStr = String.valueOf(b.getCodigoBase());
-
+        // Validación Código
         int codigo = b.getCodigoBase();
-        if (codigo < 0 || codigo > 99)
-            return "No se pudo registrar la base operativa: el código de la base no cumple el formato requerido.";
+        if (codigo < 0 || codigo > 99) {
+            errores.append("- El código debe ser un número entre 00 y 99.\n");
+        } else if (baseDAO.existeCodigo(b.getCodigoBase())) {
+            errores.append("- El código de la base ya se encuentra registrado.\n");
+        }
 
-        if (baseDAO.existeCodigo(b.getCodigoBase()))
-            return "No se pudo registrar la base operativa: el código de la base ya se encuentra registrado.";
+        // Validación Nombre
+        String nombre = (b.getNombre() != null) ? b.getNombre().trim() : "";
+        if (!nombre.matches("^[A-Za-zñÑáéíóúÁÉÍÓÚ\\- ]{1,50}$")) {
+            errores.append("- El nombre debe tener hasta 50 caracteres (letras, espacios, guiones).\n");
+        } else if (baseDAO.existeNombre(nombre)) {
+            errores.append("- El nombre de la base ya se encuentra registrado.\n");
+        }
 
-        if (b.getNombre() == null || !b.getNombre().trim().matches("^[A-Za-zñÑ\\- ]{1,50}$"))
-            return "No se pudo registrar la base operativa: el nombre de la base no cumple el formato requerido.";
+        // Validación Dirección
+        String direccion = (b.getDireccion() != null) ? b.getDireccion().trim() : "";
+        if (!validarDireccion(direccion)) {
+            errores.append(
+                    "- La dirección debe tener el formato 'Calle Principal, Calle Secundaria' (ambas alfanuméricas de 1 a 15 caracteres).\n");
+        }
 
-        String nombre = b.getNombre().trim();
-        if (baseDAO.existeNombre(nombre))
-            return "No se pudo registrar la base operativa: el nombre de la base ya se encuentra registrado.";
+        if (errores.length() > 0) {
+            return "No se pudo registrar la base operativa debido a los siguientes errores:\n" + errores.toString();
+        }
 
-        if (b.getDireccion() == null || !b.getDireccion().trim().matches("^[A-Za-z0-9ñÑ\\.\\- ]{1,100}$"))
-            return "No se pudo registrar la base operativa: la dirección no cumple el formato requerido.";
-
-        String direccion = b.getDireccion().trim();
-
-        // Estado por defecto
+        // Estado por defecto y setters finales
         b.setEstado("Activo");
         b.setNombre(nombre);
         b.setDireccion(direccion);
@@ -44,7 +53,37 @@ public class BaseService {
 
         return ok
                 ? "Base operativa registrada correctamente."
-                : "No se pudo registrar la base operativa: el código de la base ya se encuentra registrado.";
+                : "No se pudo registrar la base operativa: Error interno en base de datos.";
+    }
+
+    /**
+     * Anexo B - Validar dirección (estructura definida)
+     * Calle principal + Número + Calle secundaria
+     * Formato: tipo + dirección alfanumérica (hasta 15 caracteres) + carácter
+     * especial +
+     * longitud entre 12 y 15 + letras A-Z mayúsculas +
+     * letras del 0-9 + carácter especial "-"
+     */
+    private boolean validarDireccion(String direccion) {
+        if (direccion == null || direccion.trim().isEmpty()) {
+            return false;
+        }
+
+        // Debe contener dos partes separadas por coma
+        String[] partes = direccion.split(",");
+
+        if (partes.length != 2) {
+            return false; // no hay calle principal y secundaria
+        }
+
+        String callePrincipal = partes[0].trim();
+        String calleSecundaria = partes[1].trim();
+
+        // Patrón permitido: letras, números, espacios y ñ (y tildes integradas)
+        Pattern patronCalle = Pattern.compile("^[a-zA-Z0-9ñÑáéíóúÁÉÍÓÚ ]{1,15}$");
+
+        return patronCalle.matcher(callePrincipal).matches()
+                && patronCalle.matcher(calleSecundaria).matches();
     }
 
     public Base buscarPorCodigo(int codigo) {
@@ -56,8 +95,8 @@ public class BaseService {
     public String consultarBasePorNombre(String nombre) {
 
         // 1. Validar formato
-        if (nombre == null || !nombre.trim().matches("^[A-Za-zñÑ\\- ]{1,50}$"))
-            return "No se pudo consultar la base operativa: el nombre no cumple el formato requerido.";
+        if (nombre == null || !nombre.trim().matches("^[A-Za-zñÑáéíóúÁÉÍÓÚ\\- ]{1,50}$"))
+            return "No se pudo consultar el nombre de la base operativa: debe ser una cadena de hasta 50 caracteres, compuesta por letras del alfabeto español, espacios y el carácter guion (-).";
 
         Base base = baseDAO.buscarPorNombre(nombre.trim());
 
@@ -91,8 +130,8 @@ public class BaseService {
             return "No se pudo actualizar el nombre de la base operativa: el código de la base no cumple el formato requerido.";
 
         // 2. Validar formato del nuevo nombre
-        if (nuevoNombre == null || !nuevoNombre.trim().matches("^[A-Za-zñÑ\\- ]{1,50}$"))
-            return "No se pudo actualizar el nombre de la base operativa: el nombre no cumple el formato requerido.";
+        if (nuevoNombre == null || !nuevoNombre.trim().matches("^[A-Za-zñÑáéíóúÁÉÍÓÚ\\- ]{1,50}$"))
+            return "No se pudo actualizar el nombre de la base operativa: debe ser una cadena de hasta 50 caracteres, compuesta por letras del alfabeto español, espacios y el carácter guion (-).";
 
         // 3. Verificar existencia de la base
         Base actual = baseDAO.buscarPorCodigo(codigo);
@@ -146,9 +185,22 @@ public class BaseService {
     public List<String> listarNombres() {
         return baseDAO.listarNombres();
     }
-    public List<Base> listarTodas() {
-    return baseDAO.listarTodas();
-}
 
+    public List<Base> listarTodas() {
+        return baseDAO.listarTodas();
+    }
+
+    public List<Base> listarInactivas() {
+        List<Base> todas = baseDAO.listarTodas();
+        List<Base> inactivas = new java.util.ArrayList<>();
+        if (todas != null) {
+            for (Base b : todas) {
+                if ("Inactivo".equalsIgnoreCase(b.getEstado())) {
+                    inactivas.add(b);
+                }
+            }
+        }
+        return inactivas;
+    }
 
 }

@@ -8,7 +8,7 @@ import java.net.URL;
 
 import Presentacion.Ventanas.Transporte.rutas.PanelRutas;
 import Presentacion.Ventanas.Transporte.bases.PanelBases;
-import Presentacion.Ventanas.Transporte.intervalos.PanelIntervalos;
+import Presentacion.Ventanas.Transporte.plantillas.PanelPlantillasHorarias;
 
 public class PanelTransporte extends JPanel {
 
@@ -34,7 +34,7 @@ public class PanelTransporte extends JPanel {
         panelCards.add(pantallaInicio(), "INICIO");
         panelCards.add(new PanelRutas(cardLayout, panelCards), "RUTAS");
         panelCards.add(new PanelBases(cardLayout, panelCards), "BASES");
-        panelCards.add(new PanelIntervalos(cardLayout, panelCards), "INTERVALOS");
+        panelCards.add(new PanelPlantillasHorarias(cardLayout, panelCards), "PLANTILLAS"); // ← CAMBIO AQUÍ
 
         // ===== MOSTRAR PANTALLA INICIAL =====
         cardLayout.show(panelCards, "INICIO");
@@ -78,11 +78,11 @@ public class PanelTransporte extends JPanel {
                 "BASES");
         p.add(btnBases, gbc);
 
-        JButton btnIntervalos = crearBotonMenu(
-                "Gestión de Intervalos",
+        JButton btnPlantillas = crearBotonMenu(
+                "Plantillas Horarias",  // ← CAMBIO DE NOMBRE AQUÍ
                 "reloj.png",
-                "INTERVALOS");
-        p.add(btnIntervalos, gbc);
+                "PLANTILLAS");  // ← CAMBIO DE CARD AQUÍ
+        p.add(btnPlantillas, gbc);
 
         return p;
     }
