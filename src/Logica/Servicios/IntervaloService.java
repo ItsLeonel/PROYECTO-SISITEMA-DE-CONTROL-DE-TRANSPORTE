@@ -209,5 +209,11 @@ public String actualizarTiempo(int codigo, int nuevoTiempo) {
     public List<Intervalo> listarTodos() {
     return intervaloDAO.listarTodos();
 }
+// Agregar a IntervaloService.java
+
+public Intervalo buscarPorCodigo(int codigo) {
+    return intervaloDAO.buscarPorCodigo(codigo);
+}
 
 }
+
